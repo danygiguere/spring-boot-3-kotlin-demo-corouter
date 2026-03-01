@@ -1,0 +1,18 @@
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/demo_spring_kotlin
+    username: postgres
+    password: postgres
+  flyway:
+    url: jdbc:postgresql://localhost:5432/demo_spring_kotlin
+    user: postgres
+    password: postgres
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+server:
+  port: 8083

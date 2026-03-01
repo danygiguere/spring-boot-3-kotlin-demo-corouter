@@ -1,0 +1,162 @@
+{
+  "info": {
+    "name": "Spring Boot 3 Kotlin Demo — CoRouter",
+    "_postman_id": "spring-boot-3-kotlin-demo-corouter",
+    "description": "Postman collection for Enterprises, Teams and Users endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Enterprises",
+      "item": [
+        {
+          "name": "Create Enterprise",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/enterprises", "host": ["{{baseUrl}}"], "path": ["enterprises"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corp\",\n  \"phoneNumber\": \"+1-555-000-0000\",\n  \"website\": \"https://acme.com\",\n  \"email\": \"contact@acme.com\",\n  \"description\": \"A leading provider of innovative solutions\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Enterprise by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/enterprises/1", "host": ["{{baseUrl}}"], "path": ["enterprises", "1"] }
+          }
+        },
+        {
+          "name": "List All Enterprises",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/enterprises", "host": ["{{baseUrl}}"], "path": ["enterprises"] }
+          }
+        },
+        {
+          "name": "Search Enterprises by Name (JOOQ)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enterprises/search?name=acme",
+              "host": ["{{baseUrl}}"],
+              "path": ["enterprises", "search"],
+              "query": [{ "key": "name", "value": "acme" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teams",
+      "item": [
+        {
+          "name": "Create Team",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/teams", "host": ["{{baseUrl}}"], "path": ["teams"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enterpriseId\": 1,\n  \"name\": \"Engineering\",\n  \"description\": \"Responsible for all technical development\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Team by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/teams/1", "host": ["{{baseUrl}}"], "path": ["teams", "1"] }
+          }
+        },
+        {
+          "name": "List All Teams",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/teams", "host": ["{{baseUrl}}"], "path": ["teams"] }
+          }
+        },
+        {
+          "name": "Get Teams by Enterprise",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/teams/enterprise/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", "enterprise", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Teams Summary with Enterprise Info (JOOQ)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/teams/summary", "host": ["{{baseUrl}}"], "path": ["teams", "summary"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/users", "host": ["{{baseUrl}}"], "path": ["users"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Smith\",\n  \"email\": \"jane.smith@example.com\",\n  \"phoneNumber\": \"+1-555-987-6543\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/users/1", "host": ["{{baseUrl}}"], "path": ["users", "1"] }
+          }
+        },
+        {
+          "name": "List All Users",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/users", "host": ["{{baseUrl}}"], "path": ["users"] }
+          }
+        },
+        {
+          "name": "Assign User to Team",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/users/1/teams/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "1", "teams", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Teams for User",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/1/teams",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "1", "teams"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
