@@ -46,7 +46,7 @@ class TeamRouter(
             operation =
                 Operation(
                     operationId = "getTeamsSummary",
-                    summary = "Get teams with enterprise info (JOOQ join)",
+                    summary = "Get teams with enterprise info",
                     responses = [
                         ApiResponse(
                             responseCode = "200",

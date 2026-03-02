@@ -6,7 +6,6 @@ A demo project showcasing modern Spring Boot 3 development with Kotlin using the
 
 - **CoRouter (Functional Routing)** — Routes defined via Spring's `coRouter` DSL with separate Router and Handler classes, providing a clean separation of routing and request-handling logic
  using `CoroutineCrudRepository` for non-blocking persistence
-- **JOOQ (Optional)** — Type-safe SQL queries, complex joins, and eager-loaded nested results via `MULTISET` alongside R2DBC
 - **Global Exception Handler** — Centralized error handling with structured, consistent API error responses
 - **Swagger / OpenAPI** — Auto-generated interactive API documentation via Springdoc
 - **Hibernate Validation (i18n)** — Bean validation with localized constraint violation messages
@@ -15,7 +14,7 @@ A demo project showcasing modern Spring Boot 3 development with Kotlin using the
 
 ## Tech Stack
 
-- Kotlin · Spring Boot 3 · WebFlux · R2DBC · PostgreSQL · JOOQ · Flyway
+- Kotlin · Spring Boot 3 · WebFlux · R2DBC · PostgreSQL · Flyway
 
 ## Getting Started
 

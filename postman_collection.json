@@ -43,7 +43,7 @@
           }
         },
         {
-          "name": "Search Enterprises by Name (JOOQ)",
+          "name": "Search Enterprises by Name",
           "request": {
             "method": "GET",
             "url": {
@@ -97,7 +97,7 @@
           }
         },
         {
-          "name": "Get Teams Summary with Enterprise Info (JOOQ)",
+          "name": "Get Teams Summary with Enterprise Info",
           "request": {
             "method": "GET",
             "url": { "raw": "{{baseUrl}}/teams/summary", "host": ["{{baseUrl}}"], "path": ["teams", "summary"] }

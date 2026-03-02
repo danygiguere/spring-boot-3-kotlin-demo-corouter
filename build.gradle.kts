@@ -12,8 +12,6 @@ plugins {
 group = "com.example"
 version = "0.0.1-SNAPSHOT"
 
-val jooqVersion = "3.19.18"
-
 java {
     sourceCompatibility = JavaVersion.VERSION_21
 }
@@ -30,9 +28,6 @@ dependencies {
     implementation("org.postgresql:postgresql")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
-    implementation("org.jooq:jooq")
-    implementation("org.jooq:jooq-kotlin:$jooqVersion")
-    implementation("org.jooq:jooq-kotlin-coroutines:$jooqVersion")
     implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:2.8.3")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
