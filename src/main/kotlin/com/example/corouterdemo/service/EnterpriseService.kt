@@ -9,7 +9,6 @@ import com.example.corouterdemo.repository.EnterpriseRepository
 import com.example.corouterdemo.repository.TeamMemberRepository
 import com.example.corouterdemo.repository.TeamRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.springframework.stereotype.Service
 
@@ -36,15 +35,27 @@ class EnterpriseService(
 
     fun findAll(): Flow<Enterprise> = enterpriseRepository.findAll()
 
-    fun searchByName(name: String): Flow<EnterpriseWithTeams> =
-        enterpriseRepository.findByNameContainingIgnoreCase(name).map { enterprise ->
+    suspend fun searchByName(name: String): List<EnterpriseWithTeams> {
+        val enterprises = enterpriseRepository.findByNameContainingIgnoreCase(name).toList()
+        if (enterprises.isEmpty()) return emptyList()
+
+        val enterpriseIds = enterprises.map { it.id!! }
+        val teamsByEnterpriseId = teamRepository.findAllByEnterpriseIdIn(enterpriseIds).toList().groupBy { it.enterpriseId }
+
+        val teamIds = teamsByEnterpriseId.values.flatten().mapNotNull { it.id }
+        val membersByTeamId =
+            if (teamIds.isNotEmpty()) {
+                teamMemberRepository.findAllByTeamIdIn(teamIds).toList().groupBy { it.teamId }
+            } else {
+                emptyMap()
+            }
+
+        return enterprises.map { enterprise ->
             val teams =
-                teamRepository
-                    .findAllByEnterpriseId(enterprise.id!!)
-                    .map { team ->
-                        val userIds = teamMemberRepository.findAllByTeamId(team.id!!).map { it.userId }.toList()
-                        TeamWithMembers(id = team.id, name = team.name, description = team.description, userIds = userIds)
-                    }.toList()
+                teamsByEnterpriseId[enterprise.id].orEmpty().map { team ->
+                    val userIds = membersByTeamId[team.id].orEmpty().map { it.userId }
+                    TeamWithMembers(id = team.id, name = team.name, description = team.description, userIds = userIds)
+                }
             EnterpriseWithTeams(
                 id = enterprise.id,
                 name = enterprise.name,
@@ -55,4 +66,5 @@ class EnterpriseService(
                 teams = teams,
             )
         }
+    }
 }

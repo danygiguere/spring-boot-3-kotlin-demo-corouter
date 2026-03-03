@@ -7,7 +7,7 @@ import com.example.corouterdemo.exception.AppException
 import com.example.corouterdemo.repository.EnterpriseRepository
 import com.example.corouterdemo.repository.TeamRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import org.springframework.stereotype.Service
 
 @Service
@@ -31,10 +31,16 @@ class TeamService(
 
     fun findByEnterprise(enterpriseId: Long): Flow<Team> = teamRepository.findAllByEnterpriseId(enterpriseId)
 
-    fun findTeamsWithEnterpriseInfo(): Flow<TeamSummary> =
-        teamRepository.findAll().map { team ->
+    suspend fun findTeamsWithEnterpriseInfo(): List<TeamSummary> {
+        val teams = teamRepository.findAll().toList()
+        if (teams.isEmpty()) return emptyList()
+
+        val enterpriseIds = teams.map { it.enterpriseId }.distinct()
+        val enterprisesById = enterpriseRepository.findAllById(enterpriseIds).toList().associateBy { it.id }
+
+        return teams.map { team ->
             val enterprise =
-                enterpriseRepository.findById(team.enterpriseId)
+                enterprisesById[team.enterpriseId]
                     ?: throw AppException.NotFound("error.enterprise.not.found", team.enterpriseId)
             TeamSummary(
                 teamId = team.id,
@@ -44,4 +50,5 @@ class TeamService(
                 enterpriseEmail = enterprise.email,
             )
         }
+    }
 }

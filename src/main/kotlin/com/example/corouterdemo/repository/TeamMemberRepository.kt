@@ -8,4 +8,6 @@ interface TeamMemberRepository : CoroutineCrudRepository<TeamMember, Long> {
     fun findAllByUserId(userId: Long): Flow<TeamMember>
 
     fun findAllByTeamId(teamId: Long): Flow<TeamMember>
+
+    fun findAllByTeamIdIn(teamIds: Collection<Long>): Flow<TeamMember>
 }

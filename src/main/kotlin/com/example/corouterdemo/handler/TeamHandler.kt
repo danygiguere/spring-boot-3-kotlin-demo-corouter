@@ -38,5 +38,5 @@ class TeamHandler(
     }
 
     suspend fun findSummary(request: ServerRequest): ServerResponse =
-        ServerResponse.ok().bodyAndAwait(teamService.findTeamsWithEnterpriseInfo())
+        ServerResponse.ok().bodyValueAndAwait(teamService.findTeamsWithEnterpriseInfo())
 }

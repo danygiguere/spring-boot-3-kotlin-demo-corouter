@@ -38,6 +38,6 @@ class EnterpriseHandler(
             request.queryParam("name").orElseThrow {
                 AppException.BadRequest("error.query.param.required", "name")
             }
-        return ServerResponse.ok().bodyAndAwait(enterpriseService.searchByName(name))
+        return ServerResponse.ok().bodyValueAndAwait(enterpriseService.searchByName(name))
     }
 }
