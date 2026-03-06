@@ -81,7 +81,7 @@ class ApplicationExceptionHandler(
                 }
 
                 // =====================================================================
-                // Framework exceptions — collect field errors or use generic messages
+                // Framework/library exceptions — override messages with generic responses
                 // =====================================================================
 
                 is ConstraintViolationException -> {

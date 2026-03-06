@@ -1,12 +1,12 @@
 spring:
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/demo_spring_kotlin
-    username: postgres
-    password: postgres
+    username:
+    password:
   flyway:
     url: jdbc:postgresql://localhost:5432/demo_spring_kotlin
-    user: postgres
-    password: postgres
+    user:
+    password:
 
 springdoc:
   swagger-ui:
