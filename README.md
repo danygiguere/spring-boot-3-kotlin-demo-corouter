@@ -16,13 +16,25 @@ A demo project showcasing modern Spring Boot 3 development with Kotlin using the
 
 - Kotlin · Spring Boot 3 · WebFlux · R2DBC · PostgreSQL · Flyway
 
+## Environment Variables
+
+Local development uses `.env` support through `spring-dotenv`.
+
+Create a `.env` file from `.env.example` and provide:
+
+- `DB_NAME`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `DB_PORT`
+- `SERVER_PORT`
+
 ## Getting Started
 
-1. Ensure a local PostgreSQL instance is running with a database named `demo_spring_kotlin`
+1. Ensure a local PostgreSQL instance is running
    > 💡 Need a quick local database? Use [github.com/danygiguere/docker_db](https://github.com/danygiguere/docker_db) to spin up a dockerized PostgreSQL instance.
-2. Copy `src/main/resources/application.example.yml` and rename the copy to `application.yml` in the same directory, then update it with your local settings
+2. Copy `.env.example` to `.env`, then update it with your local PostgreSQL settings
 3. Run the application — Flyway will automatically apply migrations on startup
-4. Access the Swagger UI at **http://localhost:8080/swagger-ui.html** (port configured in `src/main/resources/application.yml`, default: `8080`)
+4. Access the Swagger UI at **http://localhost:8083/swagger-ui.html** by default, or use the `SERVER_PORT` value from your `.env`
 
 ## Data Model
 
@@ -74,6 +86,5 @@ A Postman collection (`postman_collection.json`) is included at the root of the 
 | `./gradlew test` | Run tests |
 | `./gradlew spotlessApply` | Auto-format all source files |
 | `./gradlew spotlessCheck` | Check formatting without modifying files (CI) |
-
 
 

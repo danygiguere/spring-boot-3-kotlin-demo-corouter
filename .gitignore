@@ -43,8 +43,5 @@ out/
 .m2
 libs/
 
-application.yml
 # Local Maven dependencies for Docker builds
 libs/
-
-
