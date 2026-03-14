@@ -34,7 +34,7 @@ Create a `.env` file from `.env.example` and provide:
    > 💡 Need a quick local database? Use [github.com/danygiguere/docker_db](https://github.com/danygiguere/docker_db) to spin up a dockerized PostgreSQL instance.
 2. Copy `.env.example` to `.env`, then update it with your local PostgreSQL settings
 3. Run the application — Flyway will automatically apply migrations on startup
-4. Access the Swagger UI at **http://localhost:8083/swagger-ui.html** by default, or use the `SERVER_PORT` value from your `.env`
+4. Access the Swagger UI at **http://localhost:8080/swagger-ui.html** by default, or use the `SERVER_PORT` value from your `.env`
 
 ## Data Model
 
