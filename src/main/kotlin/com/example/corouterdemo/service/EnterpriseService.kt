@@ -31,7 +31,7 @@ class EnterpriseService(
     }
 
     suspend fun findById(id: Long): Enterprise =
-        enterpriseRepository.findById(id) ?: throw AppException.NotFound("error.enterprise.not.found", id)
+        enterpriseRepository.findById(id) ?: throw AppException.NotFound("error.enterprise.not.found", arrayOf(id))
 
     fun findAll(): Flow<Enterprise> = enterpriseRepository.findAll()
 

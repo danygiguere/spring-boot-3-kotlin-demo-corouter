@@ -3,29 +3,35 @@ package com.example.corouterdemo.exception
 sealed class AppException(
     val messageKey: String,
     val messageArgs: Array<out Any> = emptyArray(),
-) : RuntimeException(messageKey) {
+    cause: Throwable? = null,
+) : RuntimeException(messageKey, cause) {
     class NotFound(
         messageKey: String,
-        vararg args: Any,
-    ) : AppException(messageKey, args)
+        args: Array<Any> = emptyArray(),
+        cause: Throwable? = null,
+    ) : AppException(messageKey, args, cause)
 
     class Conflict(
         messageKey: String,
-        vararg args: Any,
-    ) : AppException(messageKey, args)
+        args: Array<Any> = emptyArray(),
+        cause: Throwable? = null,
+    ) : AppException(messageKey, args, cause)
 
     open class BadRequest(
         messageKey: String,
-        vararg args: Any,
-    ) : AppException(messageKey, args)
+        args: Array<Any> = emptyArray(),
+        cause: Throwable? = null,
+    ) : AppException(messageKey, args, cause)
 
     class Unauthorized(
         messageKey: String,
-        vararg args: Any,
-    ) : AppException(messageKey, args)
+        args: Array<Any> = emptyArray(),
+        cause: Throwable? = null,
+    ) : AppException(messageKey, args, cause)
 
     class Forbidden(
         messageKey: String,
-        vararg args: Any,
-    ) : AppException(messageKey, args)
+        args: Array<Any> = emptyArray(),
+        cause: Throwable? = null,
+    ) : AppException(messageKey, args, cause)
 }

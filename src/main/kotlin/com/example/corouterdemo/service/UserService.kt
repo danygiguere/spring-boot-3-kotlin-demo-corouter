@@ -24,7 +24,7 @@ class UserService(
         return userRepository.save(user)
     }
 
-    suspend fun findById(id: Long): User = userRepository.findById(id) ?: throw AppException.NotFound("error.user.not.found", id)
+    suspend fun findById(id: Long): User = userRepository.findById(id) ?: throw AppException.NotFound("error.user.not.found", arrayOf(id))
 
     fun findAll(): Flow<User> = userRepository.findAll()
 

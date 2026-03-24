@@ -36,7 +36,7 @@ class EnterpriseHandler(
     suspend fun search(request: ServerRequest): ServerResponse {
         val name =
             request.queryParam("name").orElseThrow {
-                AppException.BadRequest("error.query.param.required", "name")
+                AppException.BadRequest("error.query.param.required", arrayOf("name"))
             }
         return ServerResponse.ok().bodyValueAndAwait(enterpriseService.searchByName(name))
     }

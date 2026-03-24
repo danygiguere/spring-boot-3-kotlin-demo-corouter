@@ -25,7 +25,7 @@ class TeamService(
         return teamRepository.save(team)
     }
 
-    suspend fun findById(id: Long): Team = teamRepository.findById(id) ?: throw AppException.NotFound("error.team.not.found", id)
+    suspend fun findById(id: Long): Team = teamRepository.findById(id) ?: throw AppException.NotFound("error.team.not.found", arrayOf(id))
 
     fun findAll(): Flow<Team> = teamRepository.findAll()
 
@@ -41,7 +41,7 @@ class TeamService(
         return teams.map { team ->
             val enterprise =
                 enterprisesById[team.enterpriseId]
-                    ?: throw AppException.NotFound("error.enterprise.not.found", team.enterpriseId)
+                    ?: throw AppException.NotFound("error.enterprise.not.found", arrayOf(team.enterpriseId))
             TeamSummary(
                 teamId = team.id,
                 teamName = team.name,

@@ -27,16 +27,29 @@ class ApplicationExceptionHandler(
 
     private fun correlationId() = UUID.randomUUID().toString()
 
+    private fun logAppException(
+        ex: AppException,
+        correlationId: String,
+    ) {
+        val label = "AppException.${ex::class.simpleName}"
+        if (ex.cause != null) {
+            logger.warn(ex) { "[$correlationId] $label: ${ex.messageKey}" }
+        } else {
+            logger.warn { "[$correlationId] $label: ${ex.messageKey}" }
+        }
+    }
+
     private fun resolveMessage(
         ex: AppException,
         locale: Locale,
-    ): String = messageSource.getMessage(ex.messageKey, ex.messageArgs, ex.messageKey, locale) ?: ex.messageKey
+    ): String = messageSource.getMessage(ex.messageKey, ex.messageArgs, ex.messageKey, locale)!!
 
     override fun handle(
         exchange: ServerWebExchange,
         ex: Throwable,
     ): Mono<Void> {
         val correlationId = correlationId()
+        val locale = exchange.localeContext.locale ?: Locale.ENGLISH
 
         data class ErrorDetail(
             val status: HttpStatus,
@@ -51,32 +64,27 @@ class ApplicationExceptionHandler(
                 // ===========================================
 
                 is AppException.Unauthorized -> {
-                    val locale = exchange.localeContext.locale ?: Locale.ENGLISH
-                    logger.warn { "[$correlationId] Unauthorized: ${ex.messageKey}" }
+                    logAppException(ex, correlationId)
                     ErrorDetail(HttpStatus.UNAUTHORIZED, resolveMessage(ex, locale))
                 }
 
                 is AppException.Forbidden -> {
-                    val locale = exchange.localeContext.locale ?: Locale.ENGLISH
-                    logger.warn { "[$correlationId] Forbidden: ${ex.messageKey}" }
+                    logAppException(ex, correlationId)
                     ErrorDetail(HttpStatus.FORBIDDEN, resolveMessage(ex, locale))
                 }
 
                 is AppException.NotFound -> {
-                    val locale = exchange.localeContext.locale ?: Locale.ENGLISH
-                    logger.warn { "[$correlationId] NotFound: ${ex.messageKey}" }
+                    logAppException(ex, correlationId)
                     ErrorDetail(HttpStatus.NOT_FOUND, resolveMessage(ex, locale))
                 }
 
                 is AppException.Conflict -> {
-                    val locale = exchange.localeContext.locale ?: Locale.ENGLISH
-                    logger.warn { "[$correlationId] Conflict: ${ex.messageKey}" }
+                    logAppException(ex, correlationId)
                     ErrorDetail(HttpStatus.CONFLICT, resolveMessage(ex, locale))
                 }
 
                 is AppException.BadRequest -> {
-                    val locale = exchange.localeContext.locale ?: Locale.ENGLISH
-                    logger.warn { "[$correlationId] BadRequest: ${ex.messageKey}" }
+                    logAppException(ex, correlationId)
                     ErrorDetail(HttpStatus.BAD_REQUEST, resolveMessage(ex, locale))
                 }
 
@@ -85,7 +93,6 @@ class ApplicationExceptionHandler(
                 // =====================================================================
 
                 is ConstraintViolationException -> {
-                    val locale = exchange.localeContext.locale ?: Locale.ENGLISH
                     val summary = messageSource.getMessage("validation.failed", null, locale)
                     val fieldErrors =
                         ex.constraintViolations
@@ -98,7 +105,6 @@ class ApplicationExceptionHandler(
                 }
 
                 is WebExchangeBindException -> {
-                    val locale = exchange.localeContext.locale ?: Locale.ENGLISH
                     val summary = messageSource.getMessage("validation.failed", null, locale)
                     val fieldErrors =
                         ex.bindingResult.fieldErrors
