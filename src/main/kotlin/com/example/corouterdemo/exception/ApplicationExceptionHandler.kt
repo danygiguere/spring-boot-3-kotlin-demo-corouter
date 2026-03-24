@@ -44,6 +44,11 @@ class ApplicationExceptionHandler(
         locale: Locale,
     ): String = messageSource.getMessage(ex.messageKey, ex.messageArgs, ex.messageKey, locale)!!
 
+    private fun resolveStatusMessage(
+        status: HttpStatus,
+        locale: Locale,
+    ): String = messageSource.getMessage("error.${status.value()}", null, status.reasonPhrase, locale)!!
+
     override fun handle(
         exchange: ServerWebExchange,
         ex: Throwable,
@@ -59,19 +64,21 @@ class ApplicationExceptionHandler(
 
         val detail =
             when (ex) {
-                // ===========================================
-                // Custom exceptions — messages are user-safe
-                // ===========================================
+                // ============================================================
+                // Custom app exceptions — messages are intentionally user-safe
+                // and i18n-aware. ex: AppException.Conflict("error.username.taken")
+                // ============================================================
 
                 is AppException -> {
                     logAppException(ex, correlationId)
                     ErrorDetail(ex.httpStatus, resolveMessage(ex, locale))
                 }
 
-                // =====================================================================
-                // Framework/library exceptions — override messages with generic responses
-                // =====================================================================
+                // ============================================================
+                // Input validation — field errors are preserved and returned
+                // ============================================================
 
+                // ConstraintViolationException — triggered by @Validated on service/handler method parameters
                 is ConstraintViolationException -> {
                     val summary = messageSource.getMessage("validation.failed", null, locale)
                     val fieldErrors =
@@ -84,11 +91,15 @@ class ApplicationExceptionHandler(
                     ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors)
                 }
 
+                // WebExchangeBindException — triggered by @Valid on @RequestBody in WebFlux
                 is WebExchangeBindException -> {
                     val summary = messageSource.getMessage("validation.failed", null, locale)
                     val fieldErrors =
                         ex.bindingResult.fieldErrors
-                            .groupBy({ it.field }, { it.defaultMessage ?: "Invalid value" })
+                            .groupBy({ it.field }, {
+                                it.defaultMessage
+                                    ?: messageSource.getMessage("validation.invalid.value", null, locale)!!
+                            })
                     logger.warn {
                         "[$correlationId] Validation failed on ${exchange.request.method} ${exchange.request.path}: " +
                             fieldErrors.entries.joinToString(", ") { (field, messages) -> "$field: ${messages.joinToString("; ")}" }
@@ -96,29 +107,24 @@ class ApplicationExceptionHandler(
                     ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors)
                 }
 
-                is ServerWebInputException -> {
-                    logger.warn(ex) { "[$correlationId] ServerWebInputException: ${ex.reason}" }
-                    ErrorDetail(HttpStatus.BAD_REQUEST, "The request could not be processed.")
+                // ============================================================
+                // Framework exceptions — internal messages are suppressed and
+                // replaced with generic responses to avoid leaking internals
+                // ============================================================
+
+                is ServerWebInputException, is IllegalArgumentException -> {
+                    logger.warn(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
+                    ErrorDetail(HttpStatus.BAD_REQUEST, resolveStatusMessage(HttpStatus.BAD_REQUEST, locale))
                 }
 
                 is NoSuchElementException -> {
-                    logger.warn { "[$correlationId] NoSuchElementException: ${ex.message}" }
-                    ErrorDetail(HttpStatus.NOT_FOUND, "The requested resource was not found.")
-                }
-
-                is IllegalArgumentException -> {
-                    logger.warn(ex) { "[$correlationId] IllegalArgumentException: ${ex.message}" }
-                    ErrorDetail(HttpStatus.BAD_REQUEST, "The request could not be processed.")
-                }
-
-                is RuntimeException -> {
-                    logger.error(ex) { "[$correlationId] RuntimeException: ${ex.message}" }
-                    ErrorDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.")
+                    logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
+                    ErrorDetail(HttpStatus.NOT_FOUND, resolveStatusMessage(HttpStatus.NOT_FOUND, locale))
                 }
 
                 else -> {
-                    logger.error(ex) { "[$correlationId] Unhandled exception: ${ex.javaClass.simpleName} - ${ex.message}" }
-                    ErrorDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.")
+                    logger.error(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
+                    ErrorDetail(HttpStatus.INTERNAL_SERVER_ERROR, resolveStatusMessage(HttpStatus.INTERNAL_SERVER_ERROR, locale))
                 }
             }
 
