@@ -98,7 +98,7 @@ class ApplicationExceptionHandler(
                         ex.bindingResult.fieldErrors
                             .groupBy({ it.field }, {
                                 it.defaultMessage
-                                    ?: messageSource.getMessage("validation.invalid.value", null, locale)!!
+                                    ?: messageSource.getMessage("validation.invalid.value", null, locale)
                             })
                     logger.warn {
                         "[$correlationId] Validation failed on ${exchange.request.method} ${exchange.request.path}: " +
