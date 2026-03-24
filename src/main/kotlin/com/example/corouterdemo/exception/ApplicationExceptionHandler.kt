@@ -63,29 +63,9 @@ class ApplicationExceptionHandler(
                 // Custom exceptions — messages are user-safe
                 // ===========================================
 
-                is AppException.Unauthorized -> {
+                is AppException -> {
                     logAppException(ex, correlationId)
-                    ErrorDetail(HttpStatus.UNAUTHORIZED, resolveMessage(ex, locale))
-                }
-
-                is AppException.Forbidden -> {
-                    logAppException(ex, correlationId)
-                    ErrorDetail(HttpStatus.FORBIDDEN, resolveMessage(ex, locale))
-                }
-
-                is AppException.NotFound -> {
-                    logAppException(ex, correlationId)
-                    ErrorDetail(HttpStatus.NOT_FOUND, resolveMessage(ex, locale))
-                }
-
-                is AppException.Conflict -> {
-                    logAppException(ex, correlationId)
-                    ErrorDetail(HttpStatus.CONFLICT, resolveMessage(ex, locale))
-                }
-
-                is AppException.BadRequest -> {
-                    logAppException(ex, correlationId)
-                    ErrorDetail(HttpStatus.BAD_REQUEST, resolveMessage(ex, locale))
+                    ErrorDetail(ex.httpStatus, resolveMessage(ex, locale))
                 }
 
                 // =====================================================================
