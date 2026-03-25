@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.support.WebExchangeBindException
+import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.server.ServerWebExchange
 import org.springframework.web.server.ServerWebInputException
 import org.springframework.web.server.WebExceptionHandler
@@ -112,6 +113,11 @@ class ApplicationExceptionHandler(
                 // replaced with generic responses to avoid leaking internals
                 // ============================================================
 
+                is AccessDeniedException -> {
+                    logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
+                    ErrorDetail(HttpStatus.FORBIDDEN, resolveStatusMessage(HttpStatus.FORBIDDEN, locale))
+                }
+
                 is ServerWebInputException, is IllegalArgumentException -> {
                     logger.warn(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
                     ErrorDetail(HttpStatus.BAD_REQUEST, resolveStatusMessage(HttpStatus.BAD_REQUEST, locale))
@@ -121,6 +127,15 @@ class ApplicationExceptionHandler(
                     logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
                     ErrorDetail(HttpStatus.NOT_FOUND, resolveStatusMessage(HttpStatus.NOT_FOUND, locale))
                 }
+
+                is ResponseStatusException ->
+                    if (ex.statusCode.is4xxClientError) {
+                        logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.reason}" }
+                        ErrorDetail(ex.statusCode as HttpStatus, resolveStatusMessage(ex.statusCode as HttpStatus, locale))
+                    } else {
+                        logger.error(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.reason}" }
+                        ErrorDetail(HttpStatus.INTERNAL_SERVER_ERROR, resolveStatusMessage(HttpStatus.INTERNAL_SERVER_ERROR, locale))
+                    }
 
                 else -> {
                     logger.error(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
