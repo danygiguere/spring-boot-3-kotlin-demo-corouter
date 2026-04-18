@@ -68,14 +68,13 @@ class ApplicationExceptionHandler(
                 // ============================================================
                 // Custom app exceptions — messages are intentionally user-safe
                 // and i18n-aware. ex: AppException.Conflict("error.username.taken")
-                //
+                // ============================================================
+
                 // AppException.ValidationErrors is the manual counterpart to the
                 // framework-driven validation below (ConstraintViolationException /
                 // WebExchangeBindException). Use it when business logic detects
                 // field errors that Bean Validation annotations cannot express
                 // (e.g. cross-field rules, DB uniqueness checks on update).
-                // ============================================================
-
                 is AppException.ValidationErrors -> {
                     logAppException(ex, correlationId)
                     val summary = messageSource.getMessage(ex.messageKey, null, "Validation failed", locale)!!
