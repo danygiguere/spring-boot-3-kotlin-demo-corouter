@@ -81,7 +81,7 @@ A Postman collection (`postman_collection.json`) is included at the root of the 
 
 | Command | Description |
 |---|---|
-| `./gradlew clean build` | Format code with Spotless, compile, test and package |
+| `./gradlew clean build` | Check formatting with Spotless, compile, test and package |
 | `./gradlew bootRun` | Start the application |
 | `./gradlew test` | Run tests |
 | `./gradlew spotlessApply` | Auto-format all source files |

@@ -45,10 +45,19 @@ dependencies {
 }
 
 tasks.withType<KotlinCompile> {
-    dependsOn("spotlessApply")
     compilerOptions {
         freeCompilerArgs.add("-Xjsr305=strict")
         jvmTarget.set(JvmTarget.JVM_21)
+    }
+}
+
+tasks.named("compileKotlin") {
+    dependsOn("spotlessCheck")
+}
+
+gradle.taskGraph.afterTask {
+    if (name.startsWith("spotless") && name.endsWith("Check") && state.failure != null) {
+        logger.lifecycle("\n⚠️  Formatting issues found. Run './gradlew spotlessApply' to auto-fix.\n")
     }
 }
 
