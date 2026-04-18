@@ -43,7 +43,7 @@ class ApplicationExceptionHandler(
     private fun resolveMessage(
         ex: AppException,
         locale: Locale,
-    ): String = messageSource.getMessage(ex.messageKey, ex.messageArgs, ex.messageKey, locale)!!
+    ): String = messageSource.getMessage(ex.messageKey, ex.args.ifEmpty { null }, ex.messageKey, locale)!!
 
     private fun resolveStatusMessage(
         status: HttpStatus,
@@ -70,6 +70,16 @@ class ApplicationExceptionHandler(
                 // and i18n-aware. ex: AppException.Conflict("error.username.taken")
                 // ============================================================
 
+                is AppException.ValidationErrors -> {
+                    logAppException(ex, correlationId)
+                    val summary = messageSource.getMessage(ex.messageKey, null, "Validation failed", locale)!!
+                    val resolvedErrors =
+                        ex.fieldErrors.mapValues { (_, keys) ->
+                            keys.map { key -> messageSource.getMessage(key, null, key, locale)!! }
+                        }
+                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, resolvedErrors)
+                }
+
                 is AppException -> {
                     logAppException(ex, correlationId)
                     ErrorDetail(ex.httpStatus, resolveMessage(ex, locale))
@@ -81,10 +91,13 @@ class ApplicationExceptionHandler(
 
                 // ConstraintViolationException — triggered by @Validated on service/handler method parameters
                 is ConstraintViolationException -> {
-                    val summary = messageSource.getMessage("validation.failed", null, locale)
+                    val summary = messageSource.getMessage("error.validation_failed", null, "Validation failed", locale)!!
                     val fieldErrors =
                         ex.constraintViolations
-                            .groupBy({ it.propertyPath.toString() }, { it.message })
+                            .groupBy(
+                                { it.propertyPath.toString() },
+                                { messageSource.getMessage(it.message, null, it.message, locale)!! },
+                            )
                     logger.warn {
                         "[$correlationId] Validation failed on ${exchange.request.method} ${exchange.request.path}: " +
                             fieldErrors.entries.joinToString(", ") { (field, messages) -> "$field: ${messages.joinToString("; ")}" }
@@ -94,12 +107,12 @@ class ApplicationExceptionHandler(
 
                 // WebExchangeBindException — triggered by @Valid on @RequestBody in WebFlux
                 is WebExchangeBindException -> {
-                    val summary = messageSource.getMessage("validation.failed", null, locale)
+                    val summary = messageSource.getMessage("error.validation_failed", null, "Validation failed", locale)!!
                     val fieldErrors =
                         ex.bindingResult.fieldErrors
                             .groupBy({ it.field }, {
-                                it.defaultMessage
-                                    ?: messageSource.getMessage("validation.invalid.value", null, locale)
+                                messageSource.getMessage(it, locale)
+                                    ?: messageSource.getMessage("validation.invalid.value", null, "Invalid value", locale)!!
                             })
                     logger.warn {
                         "[$correlationId] Validation failed on ${exchange.request.method} ${exchange.request.path}: " +

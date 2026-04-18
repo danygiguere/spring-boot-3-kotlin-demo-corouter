@@ -4,7 +4,7 @@ import org.springframework.http.HttpStatus
 
 sealed class AppException(
     val messageKey: String,
-    val messageArgs: Array<out Any> = emptyArray(),
+    val args: Array<Any> = emptyArray(),
     cause: Throwable? = null,
     val httpStatus: HttpStatus,
 ) : RuntimeException(messageKey, cause) {
@@ -20,7 +20,7 @@ sealed class AppException(
         cause: Throwable? = null,
     ) : AppException(messageKey, args, cause, HttpStatus.CONFLICT)
 
-    open class BadRequest(
+    class BadRequest(
         messageKey: String,
         args: Array<Any> = emptyArray(),
         cause: Throwable? = null,
@@ -37,4 +37,10 @@ sealed class AppException(
         args: Array<Any> = emptyArray(),
         cause: Throwable? = null,
     ) : AppException(messageKey, args, cause, HttpStatus.FORBIDDEN)
+
+    /** Multiple field-level validation errors (HTTP 422). fieldErrors maps field → list of message keys. */
+    class ValidationErrors(
+        val fieldErrors: Map<String, List<String>>,
+        summaryKey: String = "error.validation_failed",
+    ) : AppException(summaryKey, emptyArray(), null, HttpStatus.UNPROCESSABLE_ENTITY)
 }
