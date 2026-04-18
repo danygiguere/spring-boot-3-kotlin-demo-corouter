@@ -38,7 +38,23 @@ sealed class AppException(
         cause: Throwable? = null,
     ) : AppException(messageKey, args, cause, HttpStatus.FORBIDDEN)
 
-    /** Multiple field-level validation errors (HTTP 422). fieldErrors maps field → list of message keys. */
+    /**
+     * Use when business logic detects multiple field-level errors that cannot be expressed
+     * with Bean Validation annotations (e.g. cross-field rules, DB uniqueness checks).
+     *
+     * [fieldErrors] maps each field name to a list of i18n message keys.
+     * [summaryKey] is the i18n key for the top-level summary message (HTTP 422).
+     *
+     * Example:
+     * ```kotlin
+     * throw AppException.ValidationErrors(
+     *     fieldErrors = mapOf(
+     *         "email"    to listOf("error.email.already_registered"),
+     *         "username" to listOf("error.username.taken"),
+     *     )
+     * )
+     * ```
+     */
     class ValidationErrors(
         val fieldErrors: Map<String, List<String>>,
         summaryKey: String = "error.validation_failed",
