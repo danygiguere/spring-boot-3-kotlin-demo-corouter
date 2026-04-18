@@ -57,7 +57,7 @@ tasks.named("compileKotlin") {
 
 gradle.taskGraph.afterTask {
     if (name.startsWith("spotless") && name.endsWith("Check") && state.failure != null) {
-        logger.lifecycle("\n⚠️  Formatting issues found. Run './gradlew spotlessApply' to auto-fix.\n")
+        logger.lifecycle("\n⚠️  Formatting issues found. Run './gradlew spotlessApply build' to auto-fix and build.\n")
     }
 }
 
