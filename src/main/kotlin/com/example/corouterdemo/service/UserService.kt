@@ -7,6 +7,7 @@ import com.example.corouterdemo.exception.AppException
 import com.example.corouterdemo.repository.TeamMemberRepository
 import com.example.corouterdemo.repository.UserRepository
 import kotlinx.coroutines.flow.Flow
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 
 @Service
@@ -31,7 +32,12 @@ class UserService(
     suspend fun assignToTeam(
         userId: Long,
         teamId: Long,
-    ): TeamMember = teamMemberRepository.save(TeamMember(teamId = teamId, userId = userId))
+    ): TeamMember =
+        try {
+            teamMemberRepository.save(TeamMember(teamId = teamId, userId = userId))
+        } catch (e: DataIntegrityViolationException) {
+            throw AppException.Conflict("error.user.already.in.team", arrayOf(userId, teamId), e)
+        }
 
     fun findTeamsForUser(userId: Long): Flow<TeamMember> = teamMemberRepository.findAllByUserId(userId)
 
