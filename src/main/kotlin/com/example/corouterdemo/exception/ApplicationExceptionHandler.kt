@@ -137,7 +137,7 @@ class ApplicationExceptionHandler(
                 }
 
                 is ServerWebInputException, is IllegalArgumentException -> {
-                    logger.warn(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
+                    logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
                     ErrorDetail(HttpStatus.BAD_REQUEST, resolveStatusMessage(HttpStatus.BAD_REQUEST, locale))
                 }
 
@@ -149,7 +149,8 @@ class ApplicationExceptionHandler(
                 is ResponseStatusException ->
                     if (ex.statusCode.is4xxClientError) {
                         logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.reason}" }
-                        ErrorDetail(ex.statusCode as HttpStatus, resolveStatusMessage(ex.statusCode as HttpStatus, locale))
+                        val status = HttpStatus.resolve(ex.statusCode.value()) ?: HttpStatus.BAD_REQUEST
+                        ErrorDetail(status, resolveStatusMessage(status, locale))
                     } else {
                         logger.error(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.reason}" }
                         ErrorDetail(HttpStatus.INTERNAL_SERVER_ERROR, resolveStatusMessage(HttpStatus.INTERNAL_SERVER_ERROR, locale))
