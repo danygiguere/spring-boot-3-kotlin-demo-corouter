@@ -87,4 +87,25 @@ A Postman collection (`postman_collection.json`) is included at the root of the 
 | `./gradlew spotlessApply` | Auto-format all source files |
 | `./gradlew spotlessCheck` | Check formatting without modifying files (CI) |
 
+## Conventions & Audits (for AI agents)
+
+This repo documents its own conventions so AI coding agents follow the project's patterns.
+
+- **[`AGENTS.md`](AGENTS.md)** — the project playbook: layering (router → handler → service → repository), the `AppException` error pattern, REST-direct responses, database & migration conventions, and more. Agents should read it before making changes.
+- **`.github/skills/*`** — focused, domain-specific audit skills that enforce those conventions. The `audit` skill is an umbrella runner that selects skills by **bundle** and runs them over a **scope** (the current diff by default, or a layer / the whole repo).
+
+Run `audit list` to print the live bundle → skills map. Current bundles:
+
+| Command | Skills it runs |
+|---|---|
+| `audit` | router — only the audits matching your changed files (via `review-changes`) |
+| `audit security` | `idor-audit` · `mass-assignment-audit` · `response-exposure-audit` · `security-audit` |
+| `audit correctness` | `atomicity-audit` · `exception-audit` · `fire-and-forget-audit` |
+| `audit scaling` | `blocking-call-audit` · `nplus1-audit` · `observability-audit` · `stateless-audit` |
+| `audit db` | `migration-safety-audit` |
+| `audit all` | every audit skill above |
+| `audit list` | prints the live bundle → skills map |
+
+Each skill also runs on its own (e.g. `idor-audit`, `migration-safety-audit`). Append a scope token to widen coverage beyond the diff — a layer name (`router`, `handler`, `service`, `repository`, `domain`, `dto`, …) or `.` for the whole backend, e.g. `audit security service`.
+
 

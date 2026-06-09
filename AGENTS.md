@@ -238,7 +238,7 @@ All schema changes go through **Flyway** migrations in `src/main/resources/db/mi
 - Prefer `NOT NULL` + `DEFAULT`; allow nullable only when absence is meaningful.
 - `COMMENT ON COLUMN` for any non-obvious column.
 - **Soft delete** (if introduced): nullable `deleted_at TIMESTAMP` as the last column, with a partial index `WHERE deleted_at IS NOT NULL` and a comment.
-- Keep R2DBC entity field order aligned with the table; map snake_case columns to camelCase properties.
+- Map snake_case columns to camelCase properties.
 
 Audit: `migration-safety-audit`.
 

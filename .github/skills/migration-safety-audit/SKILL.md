@@ -29,9 +29,8 @@ Read the target `.sql` and check each rule:
 5. **Foreign keys** (`*_id` with `REFERENCES`): named constraint `fk_<table>_<ref>` — flag an unnamed constraint; and index the FK column when it drives lookups — flag a lookup-driving FK with no `CREATE INDEX`.
 6. **`ON DELETE CASCADE`:** only on join/association tables (e.g. `team_members`). Flag CASCADE on a parent that owns substantial entities (e.g. `teams` → `enterprises`) — those keep the default RESTRICT.
 7. **`deleted_at`** present → nullable, **last** column, with a partial index (`WHERE deleted_at IS NOT NULL`) and a `COMMENT ON COLUMN`.
-8. **Column order:** `id` first → business columns → `deleted_at` last (if present); keep the R2DBC entity field order aligned with the table.
-9. **`COMMENT ON COLUMN`** on any non-obvious column.
-10. **Destructive ops** (`DROP COLUMN`, `DROP TABLE`, type narrowing) — call out explicitly for confirmation.
+8. **`COMMENT ON COLUMN`** on any non-obvious column.
+9. **Destructive ops** (`DROP COLUMN`, `DROP TABLE`, type narrowing) — call out explicitly for confirmation.
 
 ## Output format
 
@@ -44,5 +43,4 @@ File: V2__add_team_members_index.sql
   ❌ fk constraint unnamed          → CONSTRAINT fk_team_members_team
   ⚠️ ADD COLUMN status NOT NULL     → no DEFAULT; locks/fails on a non-empty table
   ⚠️ ON DELETE CASCADE on teams.enterprise_id → parent owns substantial entities; use RESTRICT
-  ✅ column order OK
 ```
