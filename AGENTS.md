@@ -18,7 +18,7 @@ Guidance for AI agents working in this repository. Read this before making chang
   - [Error handling](#error-handling)
   - [Mass assignment — never trust client-controlled input ⚠️](#mass-assignment--never-trust-client-controlled-input-)
   - [Security: IDOR ⚠️](#security-idor-)
-  - [Response shape — REST-direct ⚠️](#response-shape--rest-direct-)
+  - [Response shape ⚠️](#response-shape-)
   - [Observability — logging](#observability--logging)
   - [Stateless architecture ⚠️](#stateless-architecture-)
   - [Null handling](#null-handling)
@@ -67,7 +67,7 @@ Router (coRouter DSL + OpenAPI)  →  Handler (HTTP I/O, validation)  →  Servi
 - **Service** (`service/`) — `@Service`. Business logic and orchestration. Returns entities/DTOs or `Flow<T>`; throws `AppException.*`.
 - **Repository** (`repository/`) — `CoroutineCrudRepository<Entity, Long>`. Derived queries return `Flow<T>` for collections, suspend for single rows.
 - **Entity** (`domain/entity/`) — `data class` with `@Table` and nullable `@Id val id: Long? = null`.
-- **DTO** (`dto/`) — request (validated input) and response/projection types (`*Response` with a `toResponse()` mapper; projections like `EnterpriseWithTeams`). No response envelope — see [Response shape](#response-shape--rest-direct-).
+- **DTO** (`dto/`) — request types (validated input) and projection types for composite/joined data (`EnterpriseWithTeams`, `TeamWithMembers`, `TeamSummary`). Simple resources are returned as their entity directly. No response envelope — see [Response shape](#response-shape-).
 
 ## Conventions
 
@@ -182,14 +182,14 @@ Audit: `mass-assignment-audit` (privilege/bookkeeping fields); ownership/identit
 
 Audit: `idor-audit` (forward-looking until auth lands — inventories the id-taking surface).
 
-### Response shape — REST-direct ⚠️
+### Response shape ⚠️
 
-**Return the resource representation directly — a `*Response` DTO — and let the HTTP status carry the semantics.** No success envelope. Never serialize an `@Table` entity (an entity couples the API to the table and lets any column added later leak silently).
+**Return the resource representation directly and let the HTTP status carry the semantics — no success envelope.** Returning an `@Table` entity directly is fine *when it carries no sensitive data* (`bodyValueAndAwait(user)`); the moment an entity would expose a secret or internal field, introduce a scoped `*Response` DTO (or a projection) instead of the entity.
 
-- **Map entity → DTO** via the `toResponse()` extension co-located with each `*Response` (`UserResponse`, `TeamResponse`, `EnterpriseResponse`, `TeamMemberResponse`). Single: `bodyValueAndAwait(x.toResponse())`. Collection: stream it — `bodyAndAwait(flow.map { it.toResponse() })`. Projection endpoints already return DTOs (`EnterpriseWithTeams`, `TeamWithMembers`, `TeamSummary`).
-- **Status carries meaning:** `200` read, `201` created (returns the created DTO), `201`/`204` with **no body** for a no-payload action (e.g. `assignToTeam`). Errors go through `ApplicationExceptionHandler` (`ApiErrorResponse`).
+- **Status carries meaning:** `200` read, `201` created (returns the created resource), `201`/`204` with **no body** for a no-payload action (e.g. `assignToTeam`). Errors go through `ApplicationExceptionHandler` (`ApiErrorResponse`).
 - **No success envelope** (`DataResponse`/`{data,message}`). The one exception is a *paginated* collection, which may wrap items with page metadata — not yet used here.
-- Never put credentials/secrets (`passwordHash`, tokens, `*Secret`) or internal bookkeeping (`deletedAt`, audit columns, internal flags) on a response shape; scope responses to what the caller may see (don't leak another principal's `email`/`phoneNumber`).
+- **Never expose secrets/internal fields ⚠️:** credentials/secrets (`passwordHash`, tokens, `*Secret`) or internal bookkeeping (`deletedAt`, audit columns, internal flags) must never reach a serialized response. If an entity gains such a field, stop returning the entity and add a scoped `*Response` DTO. Don't leak another principal's PII (`email`/`phoneNumber`).
+- **Composite/joined data** uses a projection DTO (`EnterpriseWithTeams`, `TeamWithMembers`, `TeamSummary`) — there's no single entity to return.
 
 Audit: `response-exposure-audit`.
 
@@ -264,14 +264,10 @@ On-demand audits that verify the ⚠️ rules above live in `.github/skills/<nam
 | Error handling (`AppException` pattern) | `exception-audit` |
 | Mass assignment — never trust client-controlled input (privilege/bookkeeping fields in request DTOs) | `mass-assignment-audit` |
 | Security — IDOR (ownership of id-taking endpoints) | `idor-audit` |
-| Response shape — REST-direct (DTOs not entities, no envelope, no secret/PII leak) | `response-exposure-audit` |
+| Response shape (no envelope, no secret/PII leak) | `response-exposure-audit` |
 | Observability — logging | `observability-audit` |
 | Stateless architecture (in-process state, `@Scheduled`) | `stateless-audit` |
 | Database & migration safety (per-file `.sql` review) | `migration-safety-audit` |
 | General security vuln pass (diff/PR; portable `/security-review`) | `security-audit` |
 | Route a diff to the relevant audits | `review-conventions` |
 | Run a bundle (`security`/`correctness`/`scaling`/`db`/`all`) over a scope | `audit` |
-| Multi-aspect review of the current local diff (bugs, tests, comments, silent failures, types, simplify) | `review-diff` |
-| Review an existing GitHub PR and post a comment (parallel reviewers + confidence scoring) | `review-pr` |
-
-`review-diff` and `review-pr` are **general-purpose** reviewers vendored from Anthropic's official Claude Code plugins (Apache 2.0; see each skill's `LICENSE`). They're tagged `[meta]` (excluded from `audit all`). `review-diff` reviews your uncommitted changes and prints a report; `review-pr` reviews an existing GitHub PR and comments via `gh`. `review-diff` drives the agents in `.github/agents/` (registered via the `.claude/agents` symlink) — those agent files say "CLAUDE.md", which means **this** `AGENTS.md`. Use the domain audits above for project conventions; use these for broad bug/quality coverage.

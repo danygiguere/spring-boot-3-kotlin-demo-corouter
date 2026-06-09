@@ -91,7 +91,7 @@ A Postman collection (`postman_collection.json`) is included at the root of the 
 
 This repo documents its own conventions so AI coding agents follow the project's patterns.
 
-- **[`AGENTS.md`](AGENTS.md)** — the project playbook: layering (router → handler → service → repository), the `AppException` error pattern, REST-direct responses, database & migration conventions, and more. Agents should read it before making changes.
+- **[`AGENTS.md`](AGENTS.md)** — the project playbook: layering (router → handler → service → repository), the `AppException` error pattern, response hygiene (no envelope, no secret/PII leak), database & migration conventions, and more. Agents should read it before making changes.
 - **`.github/skills/*`** — focused, domain-specific audit skills that enforce those conventions. The `audit` skill is an umbrella runner that selects skills by **bundle** and runs them over a **scope** (the current diff by default, or a layer / the whole repo).
 
 Run `audit list` to print the live bundle → skills map. Current bundles:
@@ -107,16 +107,5 @@ Run `audit list` to print the live bundle → skills map. Current bundles:
 | `audit list` | prints the live bundle → skills map |
 
 Each skill also runs on its own (e.g. `idor-audit`, `migration-safety-audit`). Append a scope token to widen coverage beyond the diff — a layer name (`router`, `handler`, `service`, `repository`, `domain`, `dto`, …) or `.` for the whole backend, e.g. `audit security service`.
-
-### General reviewers
-
-Alongside the domain audits, two **general-purpose** review skills are vendored from Anthropic's official Claude Code plugins (Apache 2.0 — see each skill's `LICENSE`). They are renamed so they don't shadow the built-in `/review` and `/code-review`, and are tagged `[meta]` (so they're **not** part of `audit all`):
-
-| Skill | What it does |
-|---|---|
-| `review-diff` | Reviews your **current local changes** (`git diff`) via specialized agents (bugs/conventions, tests, comments, silent failures, type design, simplify) and prints a report. Agents live in `.github/agents/`. |
-| `review-pr` | Reviews an **existing GitHub PR** with 5 parallel reviewers + confidence scoring, then posts the result as a PR comment. |
-
-Run the domain `audit` bundles for this project's conventions; run these general reviewers for broad bug/quality coverage.
 
 

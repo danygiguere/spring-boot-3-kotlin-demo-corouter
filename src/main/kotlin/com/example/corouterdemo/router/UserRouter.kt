@@ -1,8 +1,8 @@
 package com.example.corouterdemo.router
 
-import com.example.corouterdemo.dto.TeamMemberResponse
+import com.example.corouterdemo.domain.entity.TeamMember
+import com.example.corouterdemo.domain.entity.User
 import com.example.corouterdemo.dto.UserRequest
-import com.example.corouterdemo.dto.UserResponse
 import com.example.corouterdemo.handler.UserHandler
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.ArraySchema
@@ -37,7 +37,7 @@ class UserRouter(
                     responses = [
                         ApiResponse(
                             responseCode = "201",
-                            content = [Content(schema = Schema(implementation = UserResponse::class))],
+                            content = [Content(schema = Schema(implementation = User::class))],
                         ),
                     ],
                 ),
@@ -54,7 +54,7 @@ class UserRouter(
                     responses = [
                         ApiResponse(
                             responseCode = "200",
-                            content = [Content(schema = Schema(implementation = UserResponse::class))],
+                            content = [Content(schema = Schema(implementation = User::class))],
                         ),
                     ],
                 ),
@@ -74,7 +74,7 @@ class UserRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = UserResponse::class)),
+                                    array = ArraySchema(schema = Schema(implementation = User::class)),
                                 ),
                             ],
                         ),
@@ -108,7 +108,7 @@ class UserRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = TeamMemberResponse::class)),
+                                    array = ArraySchema(schema = Schema(implementation = TeamMember::class)),
                                 ),
                             ],
                         ),

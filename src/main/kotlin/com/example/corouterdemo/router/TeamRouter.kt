@@ -1,7 +1,7 @@
 package com.example.corouterdemo.router
 
+import com.example.corouterdemo.domain.entity.Team
 import com.example.corouterdemo.dto.TeamRequest
-import com.example.corouterdemo.dto.TeamResponse
 import com.example.corouterdemo.dto.TeamSummary
 import com.example.corouterdemo.handler.TeamHandler
 import io.swagger.v3.oas.annotations.Operation
@@ -37,7 +37,7 @@ class TeamRouter(
                     responses = [
                         ApiResponse(
                             responseCode = "201",
-                            content = [Content(schema = Schema(implementation = TeamResponse::class))],
+                            content = [Content(schema = Schema(implementation = Team::class))],
                         ),
                     ],
                 ),
@@ -79,7 +79,7 @@ class TeamRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = TeamResponse::class)),
+                                    array = ArraySchema(schema = Schema(implementation = Team::class)),
                                 ),
                             ],
                         ),
@@ -98,7 +98,7 @@ class TeamRouter(
                     responses = [
                         ApiResponse(
                             responseCode = "200",
-                            content = [Content(schema = Schema(implementation = TeamResponse::class))],
+                            content = [Content(schema = Schema(implementation = Team::class))],
                         ),
                     ],
                 ),
@@ -118,7 +118,7 @@ class TeamRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = TeamResponse::class)),
+                                    array = ArraySchema(schema = Schema(implementation = Team::class)),
                                 ),
                             ],
                         ),

@@ -27,7 +27,7 @@ Reviewing a branch, PR, or staged/working-tree changes.
    | `service/*Service.kt` | `atomicity-audit`, `blocking-call-audit`, `fire-and-forget-audit`, `nplus1-audit`, `observability-audit`, `stateless-audit` |
    | `handler/*Handler.kt` | `idor-audit`, `response-exposure-audit`, `observability-audit` |
    | request DTO (`dto/*Request.kt`) | `mass-assignment-audit`, `idor-audit` |
-   | response / projection DTO (`dto/*Response.kt`, `*WithTeams.kt`, `*Summary.kt`) | `response-exposure-audit` |
+   | response / projection DTO (`dto/*Response.kt`, `*WithTeams.kt`, `*Summary.kt`) or an entity returned by a handler | `response-exposure-audit` |
    | `repository/*Repository.kt` | `nplus1-audit` |
    | `@Component` / `@Service` adding state or `@Scheduled` | `stateless-audit` |
    | `exception/*` changes | `exception-audit`, `observability-audit` |
@@ -45,7 +45,7 @@ Changed: 4 files → ran 5 audits
 
 atomicity-audit         ❌ SomeService.reassignMembers(): 2 writes, no tx
 nplus1-audit            ✅ clean
-response-exposure-audit ⚠️ SomeHandler returns an entity directly — map via toResponse()
+response-exposure-audit ⚠️ User entity returned exposes passwordHash — scope via a *Response DTO
 mass-assignment-audit   ✅ clean
 exception-audit         ✅ clean
 

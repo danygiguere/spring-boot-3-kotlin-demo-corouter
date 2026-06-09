@@ -1,12 +1,10 @@
 package com.example.corouterdemo.handler
 
 import com.example.corouterdemo.dto.UserRequest
-import com.example.corouterdemo.dto.toResponse
 import com.example.corouterdemo.extension.locale
 import com.example.corouterdemo.extension.validateAndThrow
 import com.example.corouterdemo.service.UserService
 import jakarta.validation.Validator
-import kotlinx.coroutines.flow.map
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.server.ServerRequest
@@ -24,21 +22,16 @@ class UserHandler(
     suspend fun create(request: ServerRequest): ServerResponse {
         val userRequest = validator.validateAndThrow(request.awaitBody<UserRequest>(), request.locale())
         val user = userService.create(userRequest)
-        return ServerResponse.status(HttpStatus.CREATED).bodyValueAndAwait(user.toResponse())
+        return ServerResponse.status(HttpStatus.CREATED).bodyValueAndAwait(user)
     }
 
     suspend fun findById(request: ServerRequest): ServerResponse {
         val id = request.pathVariable("id").toLong()
         val user = userService.findById(id)
-        return ServerResponse.ok().bodyValueAndAwait(user.toResponse())
+        return ServerResponse.ok().bodyValueAndAwait(user)
     }
 
-    suspend fun findAll(request: ServerRequest): ServerResponse =
-        ServerResponse.ok().bodyAndAwait(
-            userService.findAll().map {
-                it.toResponse()
-            },
-        )
+    suspend fun findAll(request: ServerRequest): ServerResponse = ServerResponse.ok().bodyAndAwait(userService.findAll())
 
     suspend fun assignToTeam(request: ServerRequest): ServerResponse {
         val userId = request.pathVariable("userId").toLong()
@@ -49,6 +42,6 @@ class UserHandler(
 
     suspend fun findTeams(request: ServerRequest): ServerResponse {
         val userId = request.pathVariable("userId").toLong()
-        return ServerResponse.ok().bodyAndAwait(userService.findTeamsForUser(userId).map { it.toResponse() })
+        return ServerResponse.ok().bodyAndAwait(userService.findTeamsForUser(userId))
     }
 }
