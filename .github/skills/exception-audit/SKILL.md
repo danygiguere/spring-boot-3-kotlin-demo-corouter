@@ -27,7 +27,8 @@ Run when you want to verify that all error handling follows the `AppException.*`
    - **OK (stub):** `NotImplementedError` / `TODO()` inside a method body with a comment
    - **REVIEW:** anything else — report file path, line number, and the throw expression
 3. Also flag a caught error rethrown without its `cause`: prefer `AppException.*(key, args, e)` (see `UserService.assignToTeam` catching `DataIntegrityViolationException`).
-4. Summarise counts before listing flagged items.
+4. **i18n keys:** every key passed to `AppException.*` must exist in **both** `messages.properties` and `messages_fr.properties` — a missing key reaches the client raw. Keys also derive the RFC 9457 `type` URI (`error.x.y` → `/errors/x-y`), so flag a renamed key as an API contract change.
+5. Summarise counts before listing flagged items.
 
 ## Output format
 
@@ -39,9 +40,13 @@ Total throw sites: N
   Intentional (Constraint/Access): N  ✅
   Stubs (NotImplementedError/TODO): N  ✅
   Needs review: N  ⚠️
+  Missing i18n keys: N  ⚠️
 
 Needs review:
   src/main/kotlin/.../SomeService.kt:42
     throw ResponseStatusException(HttpStatus.BAD_REQUEST, "message")
     Fix: throw AppException.BadRequest("error.some.key")
+
+Missing i18n keys:
+  error.team.not.found (TeamService.kt:31) — absent from messages_fr.properties
 ```

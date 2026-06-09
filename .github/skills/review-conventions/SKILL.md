@@ -24,13 +24,14 @@ Reviewing a branch, PR, or staged/working-tree changes.
 
    | Changed file | Run |
    |---|---|
-   | `service/*Service.kt` | `atomicity-audit`, `blocking-call-audit`, `fire-and-forget-audit`, `nplus1-audit`, `observability-audit`, `stateless-audit` |
-   | `handler/*Handler.kt` | `idor-audit`, `response-exposure-audit`, `observability-audit` |
+   | `service/*Service.kt` | `atomicity-audit`, `blocking-call-audit`, `exception-audit`, `fire-and-forget-audit`, `nplus1-audit`, `observability-audit`, `stateless-audit` |
+   | `handler/*Handler.kt` | `idor-audit`, `response-exposure-audit`, `exception-audit`, `observability-audit` |
    | request DTO (`dto/*Request.kt`) | `mass-assignment-audit`, `idor-audit` |
    | response / projection DTO (`dto/*Response.kt`, `*WithTeams.kt`, `*Summary.kt`) or an entity returned by a handler | `response-exposure-audit` |
    | `repository/*Repository.kt` | `nplus1-audit` |
    | `@Component` / `@Service` adding state or `@Scheduled` | `stateless-audit` |
    | `exception/*` changes | `exception-audit`, `observability-audit` |
+   | `messages*.properties` | `exception-audit` (key present in both bundles; renamed key = `type` URI contract change) |
    | `db/migration/V*.sql` | `migration-safety-audit` |
 
 3. **Deduplicate** — if several buckets pull the same audit, run it once over the union of files.
