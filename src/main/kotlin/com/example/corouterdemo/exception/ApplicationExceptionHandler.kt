@@ -1,6 +1,5 @@
 package com.example.corouterdemo.exception
 
-import com.example.corouterdemo.dto.ApiErrorResponse
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.validation.ConstraintViolationException
@@ -8,6 +7,7 @@ import org.springframework.context.MessageSource
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ProblemDetail
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.support.WebExchangeBindException
 import org.springframework.web.server.ResponseStatusException
@@ -15,6 +15,7 @@ import org.springframework.web.server.ServerWebExchange
 import org.springframework.web.server.ServerWebInputException
 import org.springframework.web.server.WebExceptionHandler
 import reactor.core.publisher.Mono
+import java.net.URI
 import java.util.Locale
 import java.util.UUID
 
@@ -57,10 +58,15 @@ class ApplicationExceptionHandler(
         val correlationId = correlationId()
         val locale = exchange.localeContext.locale ?: Locale.ENGLISH
 
+        // typeKey feeds the RFC 9457 "type" URI — a stable, locale-independent
+        // identifier clients can switch on (the localized "detail" text cannot
+        // be matched programmatically). Null means the error category is
+        // deliberately opaque and "type" stays "about:blank".
         data class ErrorDetail(
             val status: HttpStatus,
             val message: String,
             val errors: Map<String, List<String>>? = null,
+            val typeKey: String? = null,
         )
 
         val detail =
@@ -82,12 +88,12 @@ class ApplicationExceptionHandler(
                         ex.fieldErrors.mapValues { (_, keys) ->
                             keys.map { key -> messageSource.getMessage(key, null, key, locale)!! }
                         }
-                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, resolvedErrors)
+                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, resolvedErrors, ex.messageKey)
                 }
 
                 is AppException -> {
                     logAppException(ex, correlationId)
-                    ErrorDetail(ex.httpStatus, resolveMessage(ex, locale))
+                    ErrorDetail(ex.httpStatus, resolveMessage(ex, locale), typeKey = ex.messageKey)
                 }
 
                 // ============================================================
@@ -107,7 +113,7 @@ class ApplicationExceptionHandler(
                         "[$correlationId] Validation failed on ${exchange.request.method} ${exchange.request.path}: " +
                             fieldErrors.entries.joinToString(", ") { (field, messages) -> "$field: ${messages.joinToString("; ")}" }
                     }
-                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors)
+                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors, "error.validation_failed")
                 }
 
                 // WebExchangeBindException — triggered by @Valid on @RequestBody in WebFlux
@@ -123,7 +129,7 @@ class ApplicationExceptionHandler(
                         "[$correlationId] Validation failed on ${exchange.request.method} ${exchange.request.path}: " +
                             fieldErrors.entries.joinToString(", ") { (field, messages) -> "$field: ${messages.joinToString("; ")}" }
                     }
-                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors)
+                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors, "error.validation_failed")
                 }
 
                 // ============================================================
@@ -162,18 +168,21 @@ class ApplicationExceptionHandler(
                 }
             }
 
-        val errorResponse =
-            ApiErrorResponse(
-                message = detail.message,
-                code = detail.status.name,
-                correlationId = correlationId,
-                errors = detail.errors,
-            )
+        val problem = ProblemDetail.forStatus(detail.status)
+        problem.detail = detail.message
+        problem.instance = URI.create(exchange.request.path.value())
+        // "error.username.taken" → "/errors/username-taken". Message keys are
+        // thereby part of the API contract: renaming one changes the type URI.
+        detail.typeKey?.let { key ->
+            problem.type = URI.create("/errors/" + key.removePrefix("error.").replace('.', '-').replace('_', '-'))
+        }
+        problem.setProperty("correlationId", correlationId)
+        detail.errors?.let { problem.setProperty("errors", it) }
 
         exchange.response.statusCode = detail.status
-        exchange.response.headers.contentType = MediaType.APPLICATION_JSON
+        exchange.response.headers.contentType = MediaType.APPLICATION_PROBLEM_JSON
 
-        val buffer = exchange.response.bufferFactory().wrap(objectMapper.writeValueAsBytes(errorResponse))
+        val buffer = exchange.response.bufferFactory().wrap(objectMapper.writeValueAsBytes(problem))
         return exchange.response.writeWith(Mono.just(buffer))
     }
 }

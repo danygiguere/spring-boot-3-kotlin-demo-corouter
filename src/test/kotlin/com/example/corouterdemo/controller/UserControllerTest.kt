@@ -45,6 +45,12 @@ class UserControllerTest : SharedTestContainers() {
             .expectStatus()
             .isEqualTo(422)
             .expectBody()
+            .jsonPath("$.type")
+            .isEqualTo("/errors/validation-failed")
+            .jsonPath("$.status")
+            .isEqualTo(422)
+            .jsonPath("$.correlationId")
+            .isNotEmpty
             .jsonPath("$.errors.name")
             .isArray
             .jsonPath("$.errors.email")
