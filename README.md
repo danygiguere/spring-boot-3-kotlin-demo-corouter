@@ -108,4 +108,15 @@ Run `audit list` to print the live bundle → skills map. Current bundles:
 
 Each skill also runs on its own (e.g. `idor-audit`, `migration-safety-audit`). Append a scope token to widen coverage beyond the diff — a layer name (`router`, `handler`, `service`, `repository`, `domain`, `dto`, …) or `.` for the whole backend, e.g. `audit security service`.
 
+### General reviewers
+
+Alongside the domain audits, two **general-purpose** review skills are vendored from Anthropic's official Claude Code plugins (Apache 2.0 — see each skill's `LICENSE`). They are renamed so they don't shadow the built-in `/review` and `/code-review`, and are tagged `[meta]` (so they're **not** part of `audit all`):
+
+| Skill | What it does |
+|---|---|
+| `review-pr` | Comprehensive pre-merge review via specialized agents (bugs/conventions, tests, comments, silent failures, type design, simplify). Agents live in `.github/agents/`. |
+| `code-review-pr` | Reviews a GitHub PR with 5 parallel reviewers + confidence scoring, then posts the result as a PR comment. |
+
+Run the domain `audit` bundles for this project's conventions; run these general reviewers for broad bug/quality coverage.
+
 

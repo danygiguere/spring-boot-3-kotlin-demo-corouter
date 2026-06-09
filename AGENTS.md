@@ -271,3 +271,7 @@ On-demand audits that verify the ⚠️ rules above live in `.github/skills/<nam
 | General security vuln pass (diff/PR; portable `/security-review`) | `security-audit` |
 | Route a diff to the relevant audits | `review-changes` |
 | Run a bundle (`security`/`correctness`/`scaling`/`db`/`all`) over a scope | `audit` |
+| Comprehensive multi-aspect review (bugs, tests, comments, silent failures, types, simplify) | `review-pr` |
+| Code-review a GitHub PR and post a comment (parallel reviewers + confidence scoring) | `code-review-pr` |
+
+`review-pr` and `code-review-pr` are **general-purpose** reviewers vendored from Anthropic's official Claude Code plugins (Apache 2.0; see each skill's `LICENSE`). They're renamed so they don't shadow the built-in `/review` / `/code-review`, and tagged `[meta]` (excluded from `audit all`). `review-pr` drives the agents in `.github/agents/` (registered via the `.claude/agents` symlink) — those agent files say "CLAUDE.md", which means **this** `AGENTS.md`. Use the domain audits above for project conventions; use these for broad bug/quality coverage.
