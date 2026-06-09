@@ -24,7 +24,7 @@ Reviewing a branch, PR, or staged/working-tree changes.
 
    | Changed file | Run |
    |---|---|
-   | `service/*Service.kt` | `atomicity-audit`, `blocking-call-audit`, `exception-audit`, `fire-and-forget-audit`, `nplus1-audit`, `observability-audit`, `stateless-audit` |
+   | `service/*Service.kt` | `atomicity-audit`, `blocking-call-audit`, `exception-audit`, `fire-and-forget-audit`, `idempotency-audit`, `nplus1-audit`, `observability-audit`, `stateless-audit` |
    | `handler/*Handler.kt` | `idor-audit`, `response-exposure-audit`, `exception-audit`, `observability-audit` |
    | request DTO (`dto/*Request.kt`) | `mass-assignment-audit`, `idor-audit` |
    | response / projection DTO (`dto/*Response.kt`, `*WithTeams.kt`, `*Summary.kt`) or an entity returned by a handler | `response-exposure-audit` |

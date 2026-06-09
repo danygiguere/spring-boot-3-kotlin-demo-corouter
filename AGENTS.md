@@ -15,6 +15,7 @@ Guidance for AI agents working in this repository. Read this before making chang
   - [Reactive — no fire-and-forget ⚠️](#reactive--no-fire-and-forget-)
   - [N+1 queries ⚠️](#n1-queries-)
   - [Atomicity & transactions ⚠️](#atomicity--transactions-)
+  - [Idempotency — replay-safe writes ⚠️](#idempotency--replay-safe-writes-)
   - [Error handling](#error-handling)
   - [Mass assignment — never trust client-controlled input ⚠️](#mass-assignment--never-trust-client-controlled-input-)
   - [Security: IDOR ⚠️](#security-idor-)
@@ -145,6 +146,16 @@ Audit: `nplus1-audit`.
 
 Audit: `atomicity-audit`.
 
+### Idempotency — replay-safe writes ⚠️
+
+**A retried write must not duplicate work.** Retries are normal (client timeout, proxy, provider redelivery); design every unsafe operation to be replay-safe.
+
+- **Create-once invariants get a DB `UNIQUE` constraint.** An app-level pre-check (`findByX != null → Conflict`) alone races under concurrent requests. Catch `DataIntegrityViolationException` and rethrow as `AppException.Conflict(key, args, e)` — the canonical shape is `uq_team_members_team_user` + `UserService.assignToTeam`.
+- **External mutations** (none yet): a deterministic idempotency key or a persisted external id, so a crash-then-retry reconciles instead of duplicating — see [Atomicity & transactions](#atomicity--transactions-).
+- **Webhooks** (none yet): dedupe provider redelivery by event id (`INSERT … ON CONFLICT (event_id) DO NOTHING` inbox) before processing.
+
+Audit: `idempotency-audit`.
+
 ### Error handling
 
 Throw `AppException.*` (`exception/AppException.kt`) — i18n-aware, user-safe message keys resolved by the global `ApplicationExceptionHandler`.
@@ -264,6 +275,7 @@ On-demand audits that verify the ⚠️ rules above live in `.github/skills/<nam
 | Reactive — no fire-and-forget (unawaited publishers) | `fire-and-forget-audit` |
 | N+1 queries | `nplus1-audit` |
 | Atomicity & transactions | `atomicity-audit` |
+| Idempotency — replay-safe writes | `idempotency-audit` |
 | Error handling (`AppException` pattern) | `exception-audit` |
 | Mass assignment — never trust client-controlled input (privilege/bookkeeping fields in request DTOs) | `mass-assignment-audit` |
 | Security — IDOR (ownership of id-taking endpoints) | `idor-audit` |

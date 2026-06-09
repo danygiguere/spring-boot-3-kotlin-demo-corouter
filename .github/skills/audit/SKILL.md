@@ -23,7 +23,7 @@ Run a bundle on your current changes (the diff) — the everyday case:
 |---|---|
 | `audit` | router — only the audits matching your changed files (via `review-conventions`) |
 | `audit security` | `idor-audit` · `mass-assignment-audit` · `response-exposure-audit` · `security-audit` |
-| `audit correctness` | `atomicity-audit` · `exception-audit` · `fire-and-forget-audit` |
+| `audit correctness` | `atomicity-audit` · `exception-audit` · `fire-and-forget-audit` · `idempotency-audit` |
 | `audit scaling` | `blocking-call-audit` · `nplus1-audit` · `observability-audit` · `stateless-audit` |
 | `audit db` | `migration-safety-audit` |
 | `audit all` | all of the above (every non-`meta` skill) |
