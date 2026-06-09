@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Umbrella runner for the project's audit skills. Run a bundle (security|correctness|scaling|db|all) over a scope (the current diff by default, or a layer / path / whole repo). Fans out one subagent per skill in parallel, then dedups + severity-sorts. `audit` with no args defers to review-changes (diff). Use for a focused or full security/quality sweep.
+description: Umbrella runner for the project's audit skills. Run a bundle (security|correctness|scaling|db|all) over a scope (the current diff by default, or a layer / path / whole repo). Fans out one subagent per skill in parallel, then dedups + severity-sorts. `audit` with no args defers to review-conventions (diff). Use for a focused or full security/quality sweep.
 argument-hint: list | security | correctness | scaling | db | all [scope]
 tags: [meta]
 ---
@@ -13,7 +13,7 @@ Orchestrator over `.github/skills/*` audit skills. Selects skills by **bundle ta
 
 ## Rules
 - Be ultra concise in output.
-- Never blind-run every skill on a plain diff — the default everyday path is relevance-based (`review-changes`). Full-scope sweeps must name a bundle + scope.
+- Never blind-run every skill on a plain diff — the default everyday path is relevance-based (`review-conventions`). Full-scope sweeps must name a bundle + scope.
 - Bundles are derived from each skill's `tags:` frontmatter — **never hardcode the skill list here.** A new `*-audit` skill auto-joins its bundle.
 
 ## Commands
@@ -21,7 +21,7 @@ Run a bundle on your current changes (the diff) — the everyday case:
 
 | Command | Skills it runs |
 |---|---|
-| `audit` | router — only the audits matching your changed files (via `review-changes`) |
+| `audit` | router — only the audits matching your changed files (via `review-conventions`) |
 | `audit security` | `idor-audit` · `mass-assignment-audit` · `response-exposure-audit` · `security-audit` |
 | `audit correctness` | `atomicity-audit` · `exception-audit` · `fire-and-forget-audit` |
 | `audit scaling` | `blocking-call-audit` · `nplus1-audit` · `observability-audit` · `stateless-audit` |
@@ -45,7 +45,7 @@ Scope tokens: a **layer name** (`router`, `handler`, `service`, `repository`, `d
 ## Instructions
 1. **Parse args** → `bundle`, `scope-token` (optional).
    - `list` → do step 2, print the tag→skills map (+ each skill's one-line description) and the **Commands** + **Scope it wider** tables, STOP.
-   - no args → invoke `review-changes`, STOP.
+   - no args → invoke `review-conventions`, STOP.
 2. **Discover** skills: glob `.github/skills/*/SKILL.md`; read each frontmatter `name`, `description`, `tags`. Build `tag → [skills]`. (Self-maintaining — reflects whatever skills exist now.)
 3. **Select** skills:
    - `all` → every skill whose `tags` is not `[meta]`.
@@ -73,5 +73,5 @@ security-audit          ✅ clean
 ```
 
 ## Notes
-- Complements (doesn't replace): `review-changes` (fast diff router) and the built-in `/code-review` + `/security-review` (generic). `audit` is for running the project's domain audits at **bundle / layer / repo** scope.
+- Complements (doesn't replace): `review-conventions` (fast diff router) and the built-in `/code-review` + `/security-review` (generic). `audit` is for running the project's domain audits at **bundle / layer / repo** scope.
 - Bundles auto-derive from `tags:`; there is currently no `contracts` bundle (no contract/API-sync skill in this project) — add one and it appears automatically.

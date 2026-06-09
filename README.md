@@ -98,7 +98,7 @@ Run `audit list` to print the live bundle → skills map. Current bundles:
 
 | Command | Skills it runs |
 |---|---|
-| `audit` | router — only the audits matching your changed files (via `review-changes`) |
+| `audit` | router — only the audits matching your changed files (via `review-conventions`) |
 | `audit security` | `idor-audit` · `mass-assignment-audit` · `response-exposure-audit` · `security-audit` |
 | `audit correctness` | `atomicity-audit` · `exception-audit` · `fire-and-forget-audit` |
 | `audit scaling` | `blocking-call-audit` · `nplus1-audit` · `observability-audit` · `stateless-audit` |
@@ -114,8 +114,8 @@ Alongside the domain audits, two **general-purpose** review skills are vendored 
 
 | Skill | What it does |
 |---|---|
-| `review-pr` | Comprehensive pre-merge review via specialized agents (bugs/conventions, tests, comments, silent failures, type design, simplify). Agents live in `.github/agents/`. |
-| `code-review-pr` | Reviews a GitHub PR with 5 parallel reviewers + confidence scoring, then posts the result as a PR comment. |
+| `review-diff` | Reviews your **current local changes** (`git diff`) via specialized agents (bugs/conventions, tests, comments, silent failures, type design, simplify) and prints a report. Agents live in `.github/agents/`. |
+| `review-pr` | Reviews an **existing GitHub PR** with 5 parallel reviewers + confidence scoring, then posts the result as a PR comment. |
 
 Run the domain `audit` bundles for this project's conventions; run these general reviewers for broad bug/quality coverage.
 

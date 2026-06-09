@@ -1,88 +1,101 @@
 ---
 name: review-pr
-description: Comprehensive multi-aspect PR/diff review via specialized subagents — bugs & conventions, tests, comments, silent failures, type design, then simplification. Renamed copy of Anthropic's built-in review-pr command so it doesn't shadow /review. Use for a thorough pre-merge review of the current changes.
+description: Review an existing GitHub pull request and post the result as a PR comment — 5 parallel reviewers (conventions, bugs, git history, prior-PR comments, code comments) filtered by a confidence score. Renamed copy of Anthropic's code-review plugin. Use to leave a review comment on a GitHub PR. To review uncommitted local changes instead, use `review-diff`.
 tags: [meta]
 ---
 
 # Skill: review-pr
 
-> **Attribution:** Adapted from Anthropic's official **`pr-review-toolkit`** plugin
+> **Attribution:** Adapted from Anthropic's official **`code-review`** plugin
 > (`claude-plugins-official`), licensed Apache 2.0 — see `LICENSE` in this directory.
-> Changes from the original: renamed to `review-pr` (to avoid shadowing the built-in
-> `/review`); frontmatter converted to this repo's skill format; agents load from
-> `.github/agents/` (symlinked at `.claude/agents/`). The agent files mention
-> `CLAUDE.md` — in this project that means **`AGENTS.md`**; tell each agent so.
+> Changes from the original: renamed to `review-pr` (it reviews an existing GitHub PR
+> and posts a comment via `gh`; the local-diff reviewer is the separate `review-diff`
+> skill); frontmatter converted to this repo's skill format; the CLAUDE.md references
+> below mean **`AGENTS.md`** in this project.
 
-Run a comprehensive pull request review using multiple specialized agents, each focusing on a different aspect of code quality.
+Provide a code review for the given pull request.
 
-The agents this skill drives live in `.github/agents/` (registered via the `.claude/agents` symlink): `code-reviewer`, `pr-test-analyzer`, `comment-analyzer`, `silent-failure-hunter`, `type-design-analyzer`, `code-simplifier`. When launching any of them, tell it this repo's conventions are in **`AGENTS.md`** (not `CLAUDE.md`).
+To do this, follow these steps precisely:
 
-**Review Aspects (optional):** "$ARGUMENTS"
+1. Use a Haiku agent to check if the pull request (a) is closed, (b) is a draft, (c) does not need a code review (eg. because it is an automated pull request, or is very simple and obviously ok), or (d) already has a code review from you from earlier. If so, do not proceed.
+2. Use another Haiku agent to give you a list of file paths to (but not the contents of) any relevant `AGENTS.md` files from the codebase: the root `AGENTS.md` file (if one exists), as well as any `AGENTS.md` files in the directories whose files the pull request modified.
+3. Use a Haiku agent to view the pull request, and ask the agent to return a summary of the change.
+4. Then, launch 5 parallel Sonnet agents to independently code review the change. The agents should do the following, then return a list of issues and the reason each issue was flagged (eg. AGENTS.md adherence, bug, historical git context, etc.):
+   a. Agent #1: Audit the changes to make sure they comply with `AGENTS.md`. Note that AGENTS.md is guidance for Claude as it writes code, so not all instructions will be applicable during code review.
+   b. Agent #2: Read the file changes in the pull request, then do a shallow scan for obvious bugs. Avoid reading extra context beyond the changes, focusing just on the changes themselves. Focus on large bugs, and avoid small issues and nitpicks. Ignore likely false positives.
+   c. Agent #3: Read the git blame and history of the code modified, to identify any bugs in light of that historical context.
+   d. Agent #4: Read previous pull requests that touched these files, and check for any comments on those pull requests that may also apply to the current pull request.
+   e. Agent #5: Read code comments in the modified files, and make sure the changes in the pull request comply with any guidance in the comments.
+5. For each issue found in #4, launch a parallel Haiku agent that takes the PR, issue description, and list of AGENTS.md files (from step 2), and returns a score to indicate the agent's level of confidence for whether the issue is real or false positive. To do that, the agent should score each issue on a scale from 0-100, indicating its level of confidence. For issues that were flagged due to AGENTS.md instructions, the agent should double check that the AGENTS.md actually calls out that issue specifically. The scale is (give this rubric to the agent verbatim):
+   a. 0: Not confident at all. This is a false positive that doesn't stand up to light scrutiny, or is a pre-existing issue.
+   b. 25: Somewhat confident. This might be a real issue, but may also be a false positive. The agent wasn't able to verify that it's a real issue. If the issue is stylistic, it is one that was not explicitly called out in the relevant AGENTS.md.
+   c. 50: Moderately confident. The agent was able to verify this is a real issue, but it might be a nitpick or not happen very often in practice. Relative to the rest of the PR, it's not very important.
+   d. 75: Highly confident. The agent double checked the issue, and verified that it is very likely it is a real issue that will be hit in practice. The existing approach in the PR is insufficient. The issue is very important and will directly impact the code's functionality, or it is an issue that is directly mentioned in the relevant AGENTS.md.
+   e. 100: Absolutely certain. The agent double checked the issue, and confirmed that it is definitely a real issue, that will happen frequently in practice. The evidence directly confirms this.
+6. Filter out any issues with a score less than 80. If there are no issues that meet this criteria, do not proceed.
+7. Use a Haiku agent to repeat the eligibility check from #1, to make sure that the pull request is still eligible for code review.
+8. Finally, use the `gh` bash command to comment back on the pull request with the result. When writing your comment, keep in mind to:
+   a. Keep your output brief
+   b. Avoid emojis
+   c. Link and cite relevant code, files, and URLs
 
-## Review Workflow
+Examples of false positives, for steps 4 and 5:
 
-1. **Determine Review Scope**
-   - Check git status to identify changed files
-   - Parse arguments to see if user requested specific review aspects
-   - Default: Run all applicable reviews
+- Pre-existing issues
+- Something that looks like a bug but is not actually a bug
+- Pedantic nitpicks that a senior engineer wouldn't call out
+- Issues that a linter, typechecker, or compiler would catch (eg. missing or incorrect imports, type errors, broken tests, formatting issues, pedantic style issues like newlines). No need to run these build steps yourself -- it is safe to assume that they will be run separately as part of CI.
+- General code quality issues (eg. lack of test coverage, general security issues, poor documentation), unless explicitly required in AGENTS.md
+- Issues that are called out in AGENTS.md, but explicitly silenced in the code (eg. due to a lint ignore comment)
+- Changes in functionality that are likely intentional or are directly related to the broader change
+- Real issues, but on lines that the user did not modify in their pull request
 
-2. **Available Review Aspects**
-   - **comments** — Analyze code comment accuracy and maintainability (`comment-analyzer`)
-   - **tests** — Review test coverage quality and completeness (`pr-test-analyzer`)
-   - **errors** — Check error handling for silent failures (`silent-failure-hunter`)
-   - **types** — Analyze type design and invariants, if new types added (`type-design-analyzer`)
-   - **code** — General code review for project guidelines (`code-reviewer`)
-   - **simplify** — Simplify code for clarity and maintainability (`code-simplifier`)
-   - **all** — Run all applicable reviews (default)
+Notes:
 
-3. **Identify Changed Files**
-   - Run `git diff --name-only` to see modified files
-   - Check if a PR already exists: `gh pr view`
-   - Identify file types and what reviews apply
+- Do not check build signal or attempt to build or typecheck the app. These will run separately, and are not relevant to your code review.
+- Use `gh` to interact with Github (eg. to fetch a pull request, or to create inline comments), rather than web fetch
+- Make a todo list first
+- You must cite and link each bug (eg. if referring to an AGENTS.md, you must link it)
+- For your final comment, follow the following format precisely (assuming for this example that you found 3 issues):
 
-4. **Determine Applicable Reviews**
-   - **Always applicable**: `code-reviewer` (general quality)
-   - **If test files changed**: `pr-test-analyzer`
-   - **If comments/docs added**: `comment-analyzer`
-   - **If error handling changed**: `silent-failure-hunter`
-   - **If types added/modified**: `type-design-analyzer`
-   - **After passing review**: `code-simplifier` (polish and refine)
+---
 
-5. **Launch Review Agents** — sequential (one at a time, easier to act on) or parallel (faster; user can request `all parallel`).
+### Code review
 
-6. **Aggregate Results** — group as Critical (must fix), Important (should fix), Suggestions (nice to have), and Strengths.
+Found 3 issues:
 
-7. **Provide Action Plan**
-   ```markdown
-   # PR Review Summary
+1. <brief description of bug> (AGENTS.md says "<...>")
 
-   ## Critical Issues (X found)
-   - [agent-name]: Issue description [file:line]
+<link to file and line with full sha1 + line range for context, note that you MUST provide the full sha and not use bash here, eg. https://github.com/anthropics/claude-code/blob/1d54823877c4de72b2316a64032a54afc404e619/README.md#L13-L17>
 
-   ## Important Issues (X found)
-   - [agent-name]: Issue description [file:line]
+2. <brief description of bug> (some/other/AGENTS.md says "<...>")
 
-   ## Suggestions (X found)
-   - [agent-name]: Suggestion [file:line]
+<link to file and line with full sha1 + line range for context>
 
-   ## Strengths
-   - What's well-done in this PR
+3. <brief description of bug> (bug due to <file and code snippet>)
 
-   ## Recommended Action
-   1. Fix critical issues first
-   2. Address important issues
-   3. Consider suggestions
-   4. Re-run review after fixes
-   ```
+<link to file and line with full sha1 + line range for context>
 
-## Usage Examples
+🤖 Generated with [Claude Code](https://claude.ai/code)
 
-- Full review (default): invoke with no arguments.
-- Specific aspects: `tests errors`, `comments`, `simplify`.
-- Parallel: `all parallel` — launches all agents at once.
+<sub>- If this code review was useful, please react with 👍. Otherwise, react with 👎.</sub>
 
-## Notes
+---
 
-- Agents analyze the `git diff` by default — run early, before creating the PR.
-- This is a **general** reviewer (bugs/tests/types/comments). For this project's domain conventions, also run the `audit` bundles (e.g. `idor-audit`, `migration-safety-audit`).
-- Tag is `[meta]`, so this skill is **not** part of `audit all`.
+- Or, if you found no issues:
+
+---
+
+### Code review
+
+No issues found. Checked for bugs and AGENTS.md compliance.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+- When linking to code, follow the following format precisely, otherwise the Markdown preview won't render correctly: https://github.com/anthropics/claude-cli-internal/blob/c21d3c10bc8e898b7ac1a2d745bdc9bc4e423afe/package.json#L10-L15
+  - Requires full git sha
+  - You must provide the full sha. Commands like `https://github.com/owner/repo/blob/$(git rev-parse HEAD)/foo/bar` will not work, since your comment will be directly rendered in Markdown.
+  - Repo name must match the repo you're code reviewing
+  - # sign after the file name
+  - Line range format is L[start]-L[end]
+  - Provide at least 1 line of context before and after, centered on the line you are commenting about (eg. if you are commenting about lines 5-6, you should link to `L4-7`)

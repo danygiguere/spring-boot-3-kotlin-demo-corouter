@@ -253,7 +253,7 @@ Audit: `migration-safety-audit`.
 
 ## Skills (audits)
 
-On-demand audits that verify the ⚠️ rules above live in `.github/skills/<name>/SKILL.md` (Copilot reads them there natively; Claude Code reads them via the `.claude/skills` symlink). They are **not** auto-loaded — invoke the relevant one when reviewing or adding code. `review-changes` routes a diff to the right subset; `audit` runs a whole bundle (by `tags:`) over a chosen scope (diff, a layer, or the repo). Each skill is tagged `security` / `correctness` / `scaling` / `db` / `meta` — `audit list` prints the live bundle map.
+On-demand audits that verify the ⚠️ rules above live in `.github/skills/<name>/SKILL.md` (Copilot reads them there natively; Claude Code reads them via the `.claude/skills` symlink). They are **not** auto-loaded — invoke the relevant one when reviewing or adding code. `review-conventions` routes a diff to the right subset; `audit` runs a whole bundle (by `tags:`) over a chosen scope (diff, a layer, or the repo). Each skill is tagged `security` / `correctness` / `scaling` / `db` / `meta` — `audit list` prints the live bundle map.
 
 | Rule / area | Skill |
 |---|---|
@@ -269,9 +269,9 @@ On-demand audits that verify the ⚠️ rules above live in `.github/skills/<nam
 | Stateless architecture (in-process state, `@Scheduled`) | `stateless-audit` |
 | Database & migration safety (per-file `.sql` review) | `migration-safety-audit` |
 | General security vuln pass (diff/PR; portable `/security-review`) | `security-audit` |
-| Route a diff to the relevant audits | `review-changes` |
+| Route a diff to the relevant audits | `review-conventions` |
 | Run a bundle (`security`/`correctness`/`scaling`/`db`/`all`) over a scope | `audit` |
-| Comprehensive multi-aspect review (bugs, tests, comments, silent failures, types, simplify) | `review-pr` |
-| Code-review a GitHub PR and post a comment (parallel reviewers + confidence scoring) | `code-review-pr` |
+| Multi-aspect review of the current local diff (bugs, tests, comments, silent failures, types, simplify) | `review-diff` |
+| Review an existing GitHub PR and post a comment (parallel reviewers + confidence scoring) | `review-pr` |
 
-`review-pr` and `code-review-pr` are **general-purpose** reviewers vendored from Anthropic's official Claude Code plugins (Apache 2.0; see each skill's `LICENSE`). They're renamed so they don't shadow the built-in `/review` / `/code-review`, and tagged `[meta]` (excluded from `audit all`). `review-pr` drives the agents in `.github/agents/` (registered via the `.claude/agents` symlink) — those agent files say "CLAUDE.md", which means **this** `AGENTS.md`. Use the domain audits above for project conventions; use these for broad bug/quality coverage.
+`review-diff` and `review-pr` are **general-purpose** reviewers vendored from Anthropic's official Claude Code plugins (Apache 2.0; see each skill's `LICENSE`). They're tagged `[meta]` (excluded from `audit all`). `review-diff` reviews your uncommitted changes and prints a report; `review-pr` reviews an existing GitHub PR and comments via `gh`. `review-diff` drives the agents in `.github/agents/` (registered via the `.claude/agents` symlink) — those agent files say "CLAUDE.md", which means **this** `AGENTS.md`. Use the domain audits above for project conventions; use these for broad bug/quality coverage.

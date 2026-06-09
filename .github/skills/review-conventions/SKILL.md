@@ -1,10 +1,10 @@
 ---
-name: review-changes
+name: review-conventions
 description: Project-specific review router — inspect the current diff and run only the relevant audit skills for each changed file type. Use to review a branch/PR/staged changes for convention compliance. Complements (does not replace) the built-in generic /code-review.
 tags: [meta]
 ---
 
-# Skill: review-changes
+# Skill: review-conventions
 
 Route a diff to this project's audit skills. This does **not** re-do generic correctness review — run the built-in `/code-review` (and `/security-review`) for that first; this layer checks the conventions in `AGENTS.md` that the generic reviewer can't know.
 
