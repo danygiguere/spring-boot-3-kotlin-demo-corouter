@@ -1,9 +1,8 @@
 package com.example.corouterdemo.router
 
-import com.example.corouterdemo.domain.entity.Team
 import com.example.corouterdemo.dto.TeamRequest
+import com.example.corouterdemo.dto.TeamResponse
 import com.example.corouterdemo.dto.TeamSummary
-import com.example.corouterdemo.dto.TeamWithMembers
 import com.example.corouterdemo.handler.TeamHandler
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.ArraySchema
@@ -35,7 +34,12 @@ class TeamRouter(
                     operationId = "createTeam",
                     summary = "Create a team",
                     requestBody = RequestBody(content = [Content(schema = Schema(implementation = TeamRequest::class))]),
-                    responses = [ApiResponse(responseCode = "201", content = [Content(schema = Schema(implementation = Team::class))])],
+                    responses = [
+                        ApiResponse(
+                            responseCode = "201",
+                            content = [Content(schema = Schema(implementation = TeamResponse::class))],
+                        ),
+                    ],
                 ),
         ),
         RouterOperation(
@@ -75,7 +79,7 @@ class TeamRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = Team::class)),
+                                    array = ArraySchema(schema = Schema(implementation = TeamResponse::class)),
                                 ),
                             ],
                         ),
@@ -94,7 +98,7 @@ class TeamRouter(
                     responses = [
                         ApiResponse(
                             responseCode = "200",
-                            content = [Content(schema = Schema(implementation = TeamWithMembers::class))],
+                            content = [Content(schema = Schema(implementation = TeamResponse::class))],
                         ),
                     ],
                 ),
@@ -114,7 +118,7 @@ class TeamRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = Team::class)),
+                                    array = ArraySchema(schema = Schema(implementation = TeamResponse::class)),
                                 ),
                             ],
                         ),

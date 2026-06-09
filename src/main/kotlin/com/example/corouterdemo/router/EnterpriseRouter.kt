@@ -1,7 +1,7 @@
 package com.example.corouterdemo.router
 
-import com.example.corouterdemo.domain.entity.Enterprise
 import com.example.corouterdemo.dto.EnterpriseRequest
+import com.example.corouterdemo.dto.EnterpriseResponse
 import com.example.corouterdemo.dto.EnterpriseWithTeams
 import com.example.corouterdemo.handler.EnterpriseHandler
 import io.swagger.v3.oas.annotations.Operation
@@ -37,7 +37,7 @@ class EnterpriseRouter(
                     responses = [
                         ApiResponse(
                             responseCode = "201",
-                            content = [Content(schema = Schema(implementation = Enterprise::class))],
+                            content = [Content(schema = Schema(implementation = EnterpriseResponse::class))],
                         ),
                     ],
                 ),
@@ -57,7 +57,7 @@ class EnterpriseRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = Enterprise::class)),
+                                    array = ArraySchema(schema = Schema(implementation = EnterpriseWithTeams::class)),
                                 ),
                             ],
                         ),
@@ -76,7 +76,7 @@ class EnterpriseRouter(
                     responses = [
                         ApiResponse(
                             responseCode = "200",
-                            content = [Content(schema = Schema(implementation = EnterpriseWithTeams::class))],
+                            content = [Content(schema = Schema(implementation = EnterpriseResponse::class))],
                         ),
                     ],
                 ),
@@ -96,7 +96,7 @@ class EnterpriseRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = Enterprise::class)),
+                                    array = ArraySchema(schema = Schema(implementation = EnterpriseResponse::class)),
                                 ),
                             ],
                         ),

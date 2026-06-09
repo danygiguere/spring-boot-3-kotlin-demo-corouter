@@ -2,6 +2,31 @@
 
 Guidance for AI agents working in this repository. Read this before making changes.
 
+⚠️ marks invariants whose violation is a bug or vulnerability. Each has an on-demand audit skill — see [Skills (audits)](#skills-audits).
+
+## Contents
+
+- [Project](#project)
+- [Commands](#commands)
+- [Agent behaviour rules](#agent-behaviour-rules)
+- [Architecture](#architecture)
+- [Conventions](#conventions)
+  - [Reactive — never block ⚠️](#reactive--never-block-)
+  - [Reactive — no fire-and-forget ⚠️](#reactive--no-fire-and-forget-)
+  - [N+1 queries ⚠️](#n1-queries-)
+  - [Atomicity & transactions ⚠️](#atomicity--transactions-)
+  - [Error handling](#error-handling)
+  - [Mass assignment — never trust client-controlled input ⚠️](#mass-assignment--never-trust-client-controlled-input-)
+  - [Security: IDOR ⚠️](#security-idor-)
+  - [Response shape — REST-direct ⚠️](#response-shape--rest-direct-)
+  - [Observability — logging](#observability--logging)
+  - [Stateless architecture ⚠️](#stateless-architecture-)
+  - [Null handling](#null-handling)
+  - [Validation & i18n](#validation--i18n)
+- [Database & migrations](#database--migrations)
+- [Testing](#testing)
+- [Skills (audits)](#skills-audits)
+
 ## Project
 
 Spring Boot 3 + Kotlin demo built on a **fully reactive** stack, using the **functional routing (`coRouter` DSL)** style with separate Router and Handler classes.
@@ -22,7 +47,7 @@ Spring Boot 3 + Kotlin demo built on a **fully reactive** stack, using the **fun
 
 `compileKotlin` depends on `spotlessCheck` — **a formatting violation fails the build.** Run `./gradlew spotlessApply build` to auto-fix and build. Spotless uses `ktlint 1.5.0`.
 
-## Agent Behaviour Rules
+## Agent behaviour rules
 
 - **Be ultra concise.** In code, comments, documentation, and responses — say as little as possible to convey the point.
 - **Never commit on behalf of the user.** Do not run `git commit` unless explicitly asked.
@@ -42,11 +67,12 @@ Router (coRouter DSL + OpenAPI)  →  Handler (HTTP I/O, validation)  →  Servi
 - **Service** (`service/`) — `@Service`. Business logic and orchestration. Returns entities/DTOs or `Flow<T>`; throws `AppException.*`.
 - **Repository** (`repository/`) — `CoroutineCrudRepository<Entity, Long>`. Derived queries return `Flow<T>` for collections, suspend for single rows.
 - **Entity** (`domain/entity/`) — `data class` with `@Table` and nullable `@Id val id: Long? = null`.
-- **DTO** (`dto/`) — request (validated input) and response/projection types.
+- **DTO** (`dto/`) — request (validated input) and response/projection types (`*Response` with a `toResponse()` mapper; projections like `EnterpriseWithTeams`). No response envelope — see [Response shape](#response-shape--rest-direct-).
 
-## Key Patterns
+## Conventions
 
-### Reactive — never block
+### Reactive — never block ⚠️
+
 All APIs are non-blocking (coroutines over Reactor). R2DBC repositories and async clients are already non-blocking.
 
 **Any blocking/synchronous call (blocking Java SDK, JDBC, etc.) inside a `suspend fun` must be wrapped in `withContext(Dispatchers.IO)`.** Coroutines do not auto-detect blocking; an unwrapped blocking call stalls a WebFlux event-loop thread and degrades the whole server under load.
@@ -61,10 +87,24 @@ suspend fun load(id: String) = withContext(Dispatchers.IO) { SomeSdk.retrieve(id
 
 > `withContext(Dispatchers.IO)` is a thread switch, **not** a transaction.
 
+Audit: `blocking-call-audit`.
+
+### Reactive — no fire-and-forget ⚠️
+
+A cold producer that is never terminated **silently does nothing**:
+
+- a `Flow` (repository/service return) that is never `.collect`/`.toList()`'d — the query never runs;
+- a Reactor `Mono`/`Flux` (from interop) created but never `.await*()`'d, returned, or composed.
+
+Terminate every producer: suspend `CoroutineCrudRepository` calls (`save`/`delete`) already execute; for a Mono use `.awaitSingleOrNull()`/`.awaitFirstOrNull()`; for a Flow use `.collect`/`.toList()` or return it in the chain. Avoid bare `.subscribe()` — it swallows errors and drops the reactive context (tx, correlation).
+
+Audit: `fire-and-forget-audit`.
+
 ### N+1 queries ⚠️
+
 **Never issue a DB call per item in a collection.** The pattern hides across method/layer boundaries — an outer query feeding a per-row inner query. Batch-fetch with an `…In(ids)` query, then join in memory.
 
-The canonical correct shape lives in `EnterpriseService.searchByName`: fetch enterprises → `findAllByEnterpriseIdIn` → `findAllByTeamIdIn`, each `groupBy` the FK, assembled in memory. Three queries regardless of result size — not one-per-row.
+The canonical correct shape lives in `EnterpriseService.searchByName` and `TeamService.findTeamsWithEnterpriseInfo`: fetch the collection → one `findAllByXIn` / `findAllById` per relation → `groupBy`/`associateBy` the FK, assembled in memory. Constant query count regardless of result size — not one-per-row.
 
 ```kotlin
 // ❌ N+1 — 1 query for users + 1 query per user for posts.
@@ -86,18 +126,27 @@ users.map { user ->
 }
 ```
 
-### Null handling
-Prefer a safe call over a redundant null-check-then-deref: `user?.email != null`, not `user != null && user.email != null`.
+Audit: `nplus1-audit`.
 
-**Positive checks only.** Keep the expanded form for `== null` and negated comparisons — collapsing flips the result when the receiver is null (e.g. `team != null && team.name != EXPECTED` must stay expanded, or the body NPEs). Review convention; no ktlint rule enforces it.
+### Atomicity & transactions ⚠️
 
-### Validation & i18n
-- Request DTOs carry Jakarta Bean Validation annotations with i18n message keys: `@field:NotBlank(message = "{user.name.required}")`.
-- Handlers validate via `validator.validateAndThrow(request.awaitBody<T>(), request.locale())` (see `extension/ValidatorExtensions.kt`). This sets the locale, validates, and throws `ConstraintViolationException` on failure.
-- Messages live in `messages.properties` (English) and `messages_fr.properties` (French). Add every new key to **both**.
-- Clients select language with the `Accept-Language: fr` header; default is English.
+**Any service method doing 2+ DB mutations must be atomic.** A partial write (delete-then-failed-save, parent-saved-but-children-missing) is a bug.
+
+- **Default:** `@Transactional` (`org.springframework.transaction.annotation`) on the **public** service method. It's proxy-based, so it is **silently ignored** on `private` methods and on **self-invocation** (a method calling another in the same class). Put the boundary on the public entry point.
+- **For self-invoked or sub-block scopes**, use programmatic `TransactionalOperator`:
+  ```kotlin
+  class FooService(/* … */, transactionManager: ReactiveTransactionManager) {
+      private val tx = TransactionalOperator.create(transactionManager)
+      suspend fun bar() = tx.executeAndAwait { /* DB writes */ }
+  }
+  ```
+- Reactive tx context propagates through the coroutine context, so `@Transactional` survives a `withContext`, but `withContext` itself provides no transactional guarantee — atomicity still requires `@Transactional` or `TransactionalOperator`.
+- **Keep external calls (HTTP, email, object storage, payment SDKs) OUTSIDE the transaction** — a DB tx can't roll them back and they shouldn't hold a connection. Do reads first, open the tx for DB writes only, run side effects after commit. Make external mutations **idempotent** (deterministic keys, persisted external ids) so a crash between the call and the commit reconciles on retry instead of duplicating.
+
+Audit: `atomicity-audit`.
 
 ### Error handling
+
 Throw `AppException.*` (`exception/AppException.kt`) — i18n-aware, user-safe message keys resolved by the global `ApplicationExceptionHandler`:
 
 | Exception | Status |
@@ -110,30 +159,72 @@ Throw `AppException.*` (`exception/AppException.kt`) — i18n-aware, user-safe m
 | `AppException.ValidationErrors(fieldErrors, summaryKey)` | 422 |
 
 - `key` is an i18n message key; `args` fills `{0}`, `{1}` placeholders (e.g. `AppException.NotFound("error.user.not.found", arrayOf(id))`).
+- Pass the original `cause` when wrapping a caught error: `AppException.Conflict(key, args, e)` (see `UserService.assignToTeam`).
 - Use `ValidationErrors` for multi-field business rules that Bean Validation annotations can't express (cross-field, DB-uniqueness).
 - `ConstraintViolationException` / `WebExchangeBindException` → 422 with per-field errors; `AccessDeniedException`, `ServerWebInputException`, `ResponseStatusException` are handled and their internals suppressed. **Don't** build ad-hoc error responses — extend the handler instead.
 - All errors return `ApiErrorResponse(message, code, correlationId, errors?)`. Framework/5xx messages are generic to avoid leaking internals; a `correlationId` is logged with every failure.
 
-### Atomicity & transactions ⚠️
-**Any service method doing 2+ DB mutations must be atomic.** A partial write (delete-then-failed-save, parent-saved-but-children-missing) is a bug.
+Audit: `exception-audit`.
 
-- **Default:** `@Transactional` (`org.springframework.transaction.annotation`) on the **public** service method. It's proxy-based, so it is **silently ignored** on `private` methods and on **self-invocation** (a method calling another in the same class). Put the boundary on the public entry point.
-- **For self-invoked or sub-block scopes**, use programmatic `TransactionalOperator`:
-  ```kotlin
-  class FooService(/* … */, transactionManager: ReactiveTransactionManager) {
-      private val tx = TransactionalOperator.create(transactionManager)
-      suspend fun bar() = tx.executeAndAwait { /* DB writes */ }
-  }
-  ```
-- Reactive tx context propagates through the coroutine context, so `@Transactional` survives a `withContext`, but withContext itself provides no transactional guarantee — atomicity still requires `@Transactional` or `TransactionalOperator`.
-- **Keep external calls (HTTP, email, object storage, payment SDKs) OUTSIDE the transaction** — a DB tx can't roll them back and they shouldn't hold a connection. Do reads first, open the tx for DB writes only, run side effects after commit. Make external mutations **idempotent** (deterministic keys, persisted external ids) so a crash between the call and the commit reconciles on retry instead of duplicating.
+### Mass assignment — never trust client-controlled input ⚠️
 
-### Security — never accept server-owned values from clients ⚠️
 A client can put any value in a request body. **Accept only fields it's legitimately allowed to set; derive or authoritatively fetch everything else server-side.** If a field would let the client influence a server-owned value, it doesn't belong in the request DTO.
 
-Never accept from the client — set server-side: `id`, ownership/identity (`userId`, `ownerId`), state/role/privilege flags, timestamps (`createdAt`/`updatedAt`), and computed values. Current request DTOs (`UserRequest`, `TeamRequest`, `EnterpriseRequest`) correctly exclude `id` — entities default `@Id` to `null` and the DB assigns it.
+Never accept from the client — set server-side: `id`, state/role/privilege flags (`role`, `status`, `verified`, …), timestamps (`createdAt`/`updatedAt`), and computed values. Current request DTOs (`UserRequest`, `TeamRequest`, `EnterpriseRequest`) correctly exclude `id` — entities default `@Id` to `null` and the DB assigns it.
 
-> When authentication is added: any handler taking a resource id must verify the resource belongs to the authenticated principal (existence ≠ authorization — ids are sequential and enumerable). Derive the principal from the auth context, never a client-supplied id; throw `AppException.Forbidden` on mismatch (or `NotFound` when existence itself is sensitive).
+Audit: `mass-assignment-audit` (privilege/bookkeeping fields); ownership/identity ids → [Security: IDOR](#security-idor-).
+
+### Security: IDOR ⚠️
+
+**Ownership/identity ids** (`userId`, `ownerId`, an `enterpriseId` used for authorization) are the ownership special case of the same never-trust-client-input rule ([Mass assignment](#mass-assignment--never-trust-client-controlled-input-)) — the variant that depends on **who the caller is** — they must come from the authenticated principal, not the payload, and existence of a row must never imply authorization (ids are sequential `BIGINT`, hence enumerable).
+
+> This project has **no authentication yet.** Until a principal exists there is nothing to enforce ownership against. When authentication is added: any handler taking a resource id must verify the resource belongs to the authenticated principal — derive the principal from the auth context, scope the query (`findByIdAndOwnerId…`) or assert ownership, and throw `AppException.Forbidden` on mismatch (or `NotFound` when existence itself is sensitive).
+
+Audit: `idor-audit` (forward-looking until auth lands — inventories the id-taking surface).
+
+### Response shape — REST-direct ⚠️
+
+**Return the resource representation directly — a `*Response` DTO — and let the HTTP status carry the semantics.** No success envelope. Never serialize an `@Table` entity (an entity couples the API to the table and lets any column added later leak silently).
+
+- **Map entity → DTO** via the `toResponse()` extension co-located with each `*Response` (`UserResponse`, `TeamResponse`, `EnterpriseResponse`, `TeamMemberResponse`). Single: `bodyValueAndAwait(x.toResponse())`. Collection: stream it — `bodyAndAwait(flow.map { it.toResponse() })`. Projection endpoints already return DTOs (`EnterpriseWithTeams`, `TeamWithMembers`, `TeamSummary`).
+- **Status carries meaning:** `200` read, `201` created (returns the created DTO), `201`/`204` with **no body** for a no-payload action (e.g. `assignToTeam`). Errors go through `ApplicationExceptionHandler` (`ApiErrorResponse`).
+- **No success envelope** (`DataResponse`/`{data,message}`). The one exception is a *paginated* collection, which may wrap items with page metadata — not yet used here.
+- Never put credentials/secrets (`passwordHash`, tokens, `*Secret`) or internal bookkeeping (`deletedAt`, audit columns, internal flags) on a response shape; scope responses to what the caller may see (don't leak another principal's `email`/`phoneNumber`).
+
+Audit: `response-exposure-audit`.
+
+### Observability — logging
+
+Failures must surface, and logs must not leak data.
+
+- Logging uses `io.github.oshai.kotlinlogging.KotlinLogging` (`private val logger = KotlinLogging.logger {}`). **Never** `println` / `System.out`.
+- **Don't swallow exceptions** — a blind `catch { }`, a catch returning `null`/a default without logging, or a reactive `onErrorResume { Mono.empty() }` hides a real failure. Either let it reach `ApplicationExceptionHandler` or log it with its cause.
+- The central handler logs 4xx-shaped failures at `warn` and 5xx at `error`, each prefixed with the `correlationId`. Match those levels.
+- **Never log secrets or PII** — no tokens/passwords, no `email`/`phoneNumber`, no full request/DTO bodies.
+
+Audit: `observability-audit`.
+
+### Stateless architecture ⚠️
+
+Keep instances stateless so the app can run behind a load balancer (any request may hit any instance). The concrete shared store / scheduler / lock is a deployment choice — this project stays infra-agnostic.
+
+- **No authoritative or consistency-critical state in process** — if losing it on restart, or two instances disagreeing, would be incorrect (not just a cache miss), it belongs in the DB or a shared store. A short-TTL local cache of DB-backed data is fine.
+- **`@Scheduled` fires on every instance** — if more than one runs, in-process schedules duplicate work. Drive periodic work from a single external trigger or guard it with a shared lock.
+
+Audit: `stateless-audit`.
+
+### Null handling
+
+Prefer a safe call over a redundant null-check-then-deref: `user?.email != null`, not `user != null && user.email != null`.
+
+**Positive checks only.** Keep the expanded form for `== null` and negated comparisons — collapsing flips the result when the receiver is null (e.g. `team != null && team.name != EXPECTED` must stay expanded, or the body NPEs). Review convention; no ktlint rule enforces it.
+
+### Validation & i18n
+
+- Request DTOs carry Jakarta Bean Validation annotations with i18n message keys: `@field:NotBlank(message = "{user.name.required}")`.
+- Handlers validate via `validator.validateAndThrow(request.awaitBody<T>(), request.locale())` (see `extension/ValidatorExtensions.kt`). This sets the locale, validates, and throws `ConstraintViolationException` on failure.
+- Messages live in `messages.properties` (English) and `messages_fr.properties` (French). Add every new key to **both**.
+- Clients select language with the `Accept-Language: fr` header; default is English.
 
 ## Database & migrations
 
@@ -149,6 +240,8 @@ All schema changes go through **Flyway** migrations in `src/main/resources/db/mi
 - **Soft delete** (if introduced): nullable `deleted_at TIMESTAMP` as the last column, with a partial index `WHERE deleted_at IS NOT NULL` and a comment.
 - Keep R2DBC entity field order aligned with the table; map snake_case columns to camelCase properties.
 
+Audit: `migration-safety-audit`.
+
 ## Testing
 
 - Integration tests extend `SharedTestContainers` (`src/test/.../shared/config/`), which starts **one reusable PostgreSQL Testcontainer** for the whole suite and wires R2DBC + Flyway via `@DynamicPropertySource`.
@@ -157,3 +250,24 @@ All schema changes go through **Flyway** migrations in `src/main/resources/db/mi
 - Router-level OpenAPI/Swagger wiring is covered by the `*SwaggerTest` classes in `router/`.
 - Test names use backtick descriptions: `` `create user - returns 422 when required fields are blank` ``.
 - Docker must be available to run the suite.
+
+## Skills (audits)
+
+On-demand audits that verify the ⚠️ rules above live in `.github/skills/<name>/SKILL.md` (Copilot reads them there natively; Claude Code reads them via the `.claude/skills` symlink). They are **not** auto-loaded — invoke the relevant one when reviewing or adding code. `review-changes` routes a diff to the right subset; `audit` runs a whole bundle (by `tags:`) over a chosen scope (diff, a layer, or the repo). Each skill is tagged `security` / `correctness` / `scaling` / `db` / `meta` — `audit list` prints the live bundle map.
+
+| Rule / area | Skill |
+|---|---|
+| Reactive — no blocking calls | `blocking-call-audit` |
+| Reactive — no fire-and-forget (unawaited publishers) | `fire-and-forget-audit` |
+| N+1 queries | `nplus1-audit` |
+| Atomicity & transactions | `atomicity-audit` |
+| Error handling (`AppException` pattern) | `exception-audit` |
+| Mass assignment — never trust client-controlled input (privilege/bookkeeping fields in request DTOs) | `mass-assignment-audit` |
+| Security — IDOR (ownership of id-taking endpoints) | `idor-audit` |
+| Response shape — REST-direct (DTOs not entities, no envelope, no secret/PII leak) | `response-exposure-audit` |
+| Observability — logging | `observability-audit` |
+| Stateless architecture (in-process state, `@Scheduled`) | `stateless-audit` |
+| Database & migration safety (per-file `.sql` review) | `migration-safety-audit` |
+| General security vuln pass (diff/PR; portable `/security-review`) | `security-audit` |
+| Route a diff to the relevant audits | `review-changes` |
+| Run a bundle (`security`/`correctness`/`scaling`/`db`/`all`) over a scope | `audit` |

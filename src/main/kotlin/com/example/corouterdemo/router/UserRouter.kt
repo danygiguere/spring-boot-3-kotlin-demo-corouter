@@ -1,9 +1,8 @@
 package com.example.corouterdemo.router
 
-import com.example.corouterdemo.domain.entity.Team
-import com.example.corouterdemo.domain.entity.TeamMember
-import com.example.corouterdemo.domain.entity.User
+import com.example.corouterdemo.dto.TeamMemberResponse
 import com.example.corouterdemo.dto.UserRequest
+import com.example.corouterdemo.dto.UserResponse
 import com.example.corouterdemo.handler.UserHandler
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.ArraySchema
@@ -35,7 +34,12 @@ class UserRouter(
                     operationId = "createUser",
                     summary = "Create a user",
                     requestBody = RequestBody(content = [Content(schema = Schema(implementation = UserRequest::class))]),
-                    responses = [ApiResponse(responseCode = "201", content = [Content(schema = Schema(implementation = User::class))])],
+                    responses = [
+                        ApiResponse(
+                            responseCode = "201",
+                            content = [Content(schema = Schema(implementation = UserResponse::class))],
+                        ),
+                    ],
                 ),
         ),
         RouterOperation(
@@ -47,7 +51,12 @@ class UserRouter(
                 Operation(
                     operationId = "getUserById",
                     summary = "Get a user by ID",
-                    responses = [ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = User::class))])],
+                    responses = [
+                        ApiResponse(
+                            responseCode = "200",
+                            content = [Content(schema = Schema(implementation = UserResponse::class))],
+                        ),
+                    ],
                 ),
         ),
         RouterOperation(
@@ -65,7 +74,7 @@ class UserRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = User::class)),
+                                    array = ArraySchema(schema = Schema(implementation = UserResponse::class)),
                                 ),
                             ],
                         ),
@@ -81,12 +90,7 @@ class UserRouter(
                 Operation(
                     operationId = "assignUserToTeam",
                     summary = "Assign a user to a team",
-                    responses = [
-                        ApiResponse(
-                            responseCode = "201",
-                            content = [Content(schema = Schema(implementation = TeamMember::class))],
-                        ),
-                    ],
+                    responses = [ApiResponse(responseCode = "201", description = "User assigned to team")],
                 ),
         ),
         RouterOperation(
@@ -104,7 +108,7 @@ class UserRouter(
                             content = [
                                 Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    array = ArraySchema(schema = Schema(implementation = Team::class)),
+                                    array = ArraySchema(schema = Schema(implementation = TeamMemberResponse::class)),
                                 ),
                             ],
                         ),

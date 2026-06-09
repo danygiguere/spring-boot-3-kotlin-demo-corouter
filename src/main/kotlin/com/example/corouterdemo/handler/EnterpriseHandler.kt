@@ -1,11 +1,13 @@
 package com.example.corouterdemo.handler
 
 import com.example.corouterdemo.dto.EnterpriseRequest
+import com.example.corouterdemo.dto.toResponse
 import com.example.corouterdemo.exception.AppException
 import com.example.corouterdemo.extension.locale
 import com.example.corouterdemo.extension.validateAndThrow
 import com.example.corouterdemo.service.EnterpriseService
 import jakarta.validation.Validator
+import kotlinx.coroutines.flow.map
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.server.ServerRequest
@@ -22,16 +24,17 @@ class EnterpriseHandler(
     suspend fun create(request: ServerRequest): ServerResponse {
         val enterpriseRequest = validator.validateAndThrow(request.awaitBody<EnterpriseRequest>(), request.locale())
         val enterprise = enterpriseService.create(enterpriseRequest)
-        return ServerResponse.status(HttpStatus.CREATED).bodyValueAndAwait(enterprise)
+        return ServerResponse.status(HttpStatus.CREATED).bodyValueAndAwait(enterprise.toResponse())
     }
 
     suspend fun findById(request: ServerRequest): ServerResponse {
         val id = request.pathVariable("id").toLong()
         val enterprise = enterpriseService.findById(id)
-        return ServerResponse.ok().bodyValueAndAwait(enterprise)
+        return ServerResponse.ok().bodyValueAndAwait(enterprise.toResponse())
     }
 
-    suspend fun findAll(request: ServerRequest): ServerResponse = ServerResponse.ok().bodyAndAwait(enterpriseService.findAll())
+    suspend fun findAll(request: ServerRequest): ServerResponse =
+        ServerResponse.ok().bodyAndAwait(enterpriseService.findAll().map { it.toResponse() })
 
     suspend fun search(request: ServerRequest): ServerResponse {
         val name =
