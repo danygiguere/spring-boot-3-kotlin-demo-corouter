@@ -7,6 +7,8 @@ tags: [meta]
 
 # Skill: audit
 
+Usage: audit [list | security | correctness | scaling | db | all] [scope]
+
 Orchestrator over `.github/skills/*` audit skills. Selects skills by **bundle tag**, runs them over a **scope**, aggregates the findings. It does not contain audit logic itself — it delegates to each skill's own `SKILL.md`.
 
 ## Rules
