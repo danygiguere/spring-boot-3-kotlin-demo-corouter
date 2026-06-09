@@ -106,6 +106,15 @@ Run `audit list` to print the live bundle → skills map. Current bundles:
 | `audit all` | every audit skill above |
 | `audit list` | prints the live bundle → skills map |
 
-Each skill also runs on its own (e.g. `idor-audit`, `migration-safety-audit`). Append a scope token to widen coverage beyond the diff — a layer name (`router`, `handler`, `service`, `repository`, `domain`, `dto`, …) or `.` for the whole backend, e.g. `audit security service`.
+Each skill also runs on its own (e.g. `idor-audit`, `migration-safety-audit`).
+
+The last token sets the **scope**: where the skills look. It does not change which skills run.
+
+| Scope token | Example | What gets audited |
+|---|---|---|
+| (none) | `audit all` | Only the current diff (uncommitted or branch changes). A clean tree means there is nothing to audit. |
+| a layer name (`router`, `handler`, `service`, `repository`, `domain`, `dto`, …) | `audit security service` | Every file in that layer, whole files, not just changed lines. |
+| a path | `audit all order` | Every file under that feature folder. |
+| `.` | `audit all .` | The entire repo, every file, regardless of git history. Thorough but slow. |
 
 
