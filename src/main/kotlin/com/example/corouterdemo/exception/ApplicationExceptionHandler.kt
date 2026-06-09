@@ -19,6 +19,17 @@ import java.net.URI
 import java.util.Locale
 import java.util.UUID
 
+/**
+ * Maps every uncaught exception to an RFC 9457 problem-detail response.
+ *
+ * Client-visible messages are an allowlist, not a denylist: [AppException] is the only
+ * type whose message (an i18n key resolved via [MessageSource]) reaches the client.
+ * Any other exception may carry internals (SQL, paths, state), so its message is never
+ * exposed. The client receives a generic status phrase. A known built-in type can still
+ * map to a specific status code (e.g. NoSuchElementException → 404), but only the code
+ * is taken from it, never the text. The real message and stack trace go to the log,
+ * tied to the response by the correlationId.
+ */
 @Component
 @Order(-2)
 class ApplicationExceptionHandler(

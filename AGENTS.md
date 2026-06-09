@@ -147,7 +147,9 @@ Audit: `atomicity-audit`.
 
 ### Error handling
 
-Throw `AppException.*` (`exception/AppException.kt`) — i18n-aware, user-safe message keys resolved by the global `ApplicationExceptionHandler`:
+Throw `AppException.*` (`exception/AppException.kt`) — i18n-aware, user-safe message keys resolved by the global `ApplicationExceptionHandler`.
+
+**Why a marker type:** message safety can't be judged from the text — a built-in exception (e.g. `RuntimeException`) may carry SQL, paths, or internals. `AppException` is the *only* type whose message reaches the client (an allowlist); every other exception's message is suppressed by default (fail closed). Built-ins are at most mapped to a status code — never to their message.
 
 | Exception | Status |
 |---|---|

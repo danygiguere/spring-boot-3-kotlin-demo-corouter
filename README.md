@@ -6,7 +6,7 @@ A demo project showcasing modern Spring Boot 3 development with Kotlin using the
 
 - **CoRouter (Functional Routing)** — Routes defined via Spring's `coRouter` DSL with separate Router and Handler classes, providing a clean separation of routing and request-handling logic
  using `CoroutineCrudRepository` for non-blocking persistence
-- **Global Exception Handler** — Centralized error handling with structured, consistent API error responses
+- **Global Exception Handler** — Centralized error handling returning RFC 9457 problem details (`application/problem+json`); only `AppException` messages reach the client, everything else fails closed
 - **Swagger / OpenAPI** — Auto-generated interactive API documentation via Springdoc
 - **Hibernate Validation (i18n)** — Bean validation with localized constraint violation messages
 - **Spotless & Linting** — Automated code formatting and style enforcement
