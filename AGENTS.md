@@ -67,12 +67,23 @@ suspend fun load(id: String) = withContext(Dispatchers.IO) { SomeSdk.retrieve(id
 The canonical correct shape lives in `EnterpriseService.searchByName`: fetch enterprises → `findAllByEnterpriseIdIn` → `findAllByTeamIdIn`, each `groupBy` the FK, assembled in memory. Three queries regardless of result size — not one-per-row.
 
 ```kotlin
-// ❌ N+1 — 1 query for teams, then 1 per team
-teams.map { team -> memberRepo.findAllByTeamId(team.id).toList() }
+// ❌ N+1 — 1 query for users + 1 query per user for posts.
+//          25 users → 26 queries, and it grows with the result set.
+val users = userRepo.findAll().toList()              // query 1: fetch users
+users.map { user ->
+    postRepo.findAllByUserId(user.id).toList()       // query 2..N+1: one per user 👈
+}
 
-// ✅ 1 batch query, grouped in memory
-val byTeam = memberRepo.findAllByTeamIdIn(teams.mapNotNull { it.id }).toList().groupBy { it.teamId }
-teams.map { team -> byTeam[team.id].orEmpty() }
+// ✅ 2 queries total, regardless of result size.
+val users = userRepo.findAll().toList()              // query 1: fetch users
+val userIds = users.mapNotNull { it.id }
+val postsByUser =
+    postRepo.findAllByUserIdIn(userIds)              // query 2: batch-fetch ALL posts at once
+        .toList()
+        .groupBy { it.userId }                       // in-memory grouping — no extra query
+users.map { user ->
+    user.copy(posts = postsByUser[user.id].orEmpty())
+}
 ```
 
 ### Null handling
@@ -114,10 +125,10 @@ Throw `AppException.*` (`exception/AppException.kt`) — i18n-aware, user-safe m
       suspend fun bar() = tx.executeAndAwait { /* DB writes */ }
   }
   ```
-- Reactive tx context propagates through the coroutine context, so `@Transactional` survives a `withContext`, but the switch itself guarantees nothing.
+- Reactive tx context propagates through the coroutine context, so `@Transactional` survives a `withContext`, but withContext itself provides no transactional guarantee — atomicity still requires `@Transactional` or `TransactionalOperator`.
 - **Keep external calls (HTTP, email, object storage, payment SDKs) OUTSIDE the transaction** — a DB tx can't roll them back and they shouldn't hold a connection. Do reads first, open the tx for DB writes only, run side effects after commit. Make external mutations **idempotent** (deterministic keys, persisted external ids) so a crash between the call and the commit reconciles on retry instead of duplicating.
 
-### Security — request DTOs are the allow-list ⚠️
+### Security — never accept server-owned values from clients ⚠️
 A client can put any value in a request body. **Accept only fields it's legitimately allowed to set; derive or authoritatively fetch everything else server-side.** If a field would let the client influence a server-owned value, it doesn't belong in the request DTO.
 
 Never accept from the client — set server-side: `id`, ownership/identity (`userId`, `ownerId`), state/role/privilege flags, timestamps (`createdAt`/`updatedAt`), and computed values. Current request DTOs (`UserRequest`, `TeamRequest`, `EnterpriseRequest`) correctly exclude `id` — entities default `@Id` to `null` and the DB assigns it.
