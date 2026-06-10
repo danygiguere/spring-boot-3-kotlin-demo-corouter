@@ -42,6 +42,8 @@ Add a **scope token** after the bundle:
 
 Scope tokens: a **layer name** (`router`, `handler`, `service`, `repository`, `domain`, `dto`, `exception`, `extension`, `config`) resolves to that package; **`.`** = the whole backend (`src/main/kotlin`). (A literal path still works for anything custom.) Bigger scope = slower/costlier — prefer the narrowest that covers your change.
 
+Scope tokens are parsed only by this umbrella. Invoked directly, the individual skills take no scope argument; each scans its own fixed target. To run a single skill over a chosen scope, go through this umbrella.
+
 ## Instructions
 1. **Parse args** → `bundle`, `scope-token` (optional).
    - `list` → do step 2, print the tag→skills map (+ each skill's one-line description) and the **Commands** + **Scope it wider** tables, STOP.

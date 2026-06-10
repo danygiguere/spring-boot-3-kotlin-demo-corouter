@@ -1,6 +1,7 @@
 ---
 name: migration-safety-audit
 description: Review a new Flyway migration .sql against DB conventions and lock/safety risks before it merges.
+argument-hint: "[path/to/V<N>__*.sql]"
 tags: [db]
 ---
 

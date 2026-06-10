@@ -115,6 +115,8 @@ The last token sets the **scope**: where the skills look. It does not change whi
 | (none) | `audit all` | Only the current diff (uncommitted or branch changes). A clean tree means there is nothing to audit. |
 | a layer name (`router`, `handler`, `service`, `repository`, `domain`, `dto`, …) | `audit security service` | Every file in that layer, whole files, not just changed lines. |
 | a path | `audit all order` | Every file under that feature folder. |
-| `.` | `audit all .` | The entire repo, every file, regardless of git history. Thorough but slow. |
+| `.` | `audit all .` | The whole backend (`src/main/kotlin`), every file, regardless of git history. Thorough but slow. |
+
+Scope tokens (including `.`) are parsed **only by the `audit` umbrella**; the standalone skills take no scope argument. The scanners (`exception-audit`, `nplus1-audit`, etc.) always scan all of `src/main/kotlin`, `security-audit` and `review-conventions` work on a diff, and `migration-safety-audit` targets migration `.sql` files. To run a single skill over a chosen scope, go through the umbrella: `audit <bundle> <scope>`.
 
 
