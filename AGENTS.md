@@ -267,12 +267,6 @@ Audit: `migration-safety-audit`.
 
 ## Skills (audits)
 
-On-demand audits that verify the ⚠️ rules above live in `.github/skills/<name>/SKILL.md` (Copilot reads them there natively; Claude Code reads them via the `.claude/skills` symlink). They are **not** auto-loaded — invoke the relevant one when reviewing or adding code. `review-conventions` routes a diff to the right subset; `audit` runs a whole bundle (by `tags:`) over a chosen scope. Each skill is tagged `security` / `correctness` / `scaling` / `db` / `meta` — `audit list` prints the live bundle map.
-
-The scope is the last token and sets where the skills look, not which skills run. With no scope token, only the current diff is audited, so a clean tree yields nothing. A layer name (`service`, `handler`, …) or a path audits every file there, whole files. `.` audits the whole backend (`src/main/kotlin`) regardless of git history. Example: `audit all .` runs every audit skill over the whole codebase.
-
-Scope tokens (including `.`) are parsed only by the `audit` umbrella. Invoked directly, the individual skills take no scope argument: the scanners always cover all of `src/main/kotlin`, `security-audit` and `review-conventions` work on the current diff, and `migration-safety-audit` reviews migration `.sql` files. To run one skill over a chosen scope, go through `audit`.
-
 | Rule / area | Skill |
 |---|---|
 | Reactive — no blocking calls | `blocking-call-audit` |
@@ -290,3 +284,10 @@ Scope tokens (including `.`) are parsed only by the `audit` umbrella. Invoked di
 | General security vuln pass (diff/PR; portable `/security-review`) | `security-audit` |
 | Route a diff to the relevant audits | `review-conventions` |
 | Run a bundle (`security`/`correctness`/`scaling`/`db`/`all`) over a scope | `audit` |
+
+On-demand audits that verify the ⚠️ rules above live in `.github/skills/<name>/SKILL.md` (Copilot reads them there natively; Claude Code reads them via the `.claude/skills` symlink). They are **not** auto-loaded — invoke the relevant one when reviewing or adding code. `review-conventions` routes a diff to the right subset; `audit` runs a whole bundle (by `tags:`) over a chosen scope. Each skill is tagged `security` / `correctness` / `scaling` / `db` / `meta` — `audit list` prints the live bundle map.
+
+The scope is the last token and sets where the skills look, not which skills run. With no scope token, only the current diff is audited, so a clean tree yields nothing. A layer name (`service`, `handler`, …) or a path audits every file there, whole files. `.` audits the whole backend (`src/main/kotlin`) regardless of git history. Example: `audit all .` runs every audit skill over the whole codebase.
+
+Scope tokens (including `.`) are parsed only by the `audit` umbrella. Invoked directly, the individual skills take no scope argument: the scanners always cover all of `src/main/kotlin`, `security-audit` and `review-conventions` work on the current diff, and `migration-safety-audit` reviews migration `.sql` files. To run one skill over a chosen scope, go through `audit`.
+
