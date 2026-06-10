@@ -98,7 +98,7 @@ Run `audit list` to print the live bundle → skills map. Current bundles:
 
 | Command | Skills it runs |
 |---|---|
-| `audit` | router — only the audits matching your changed files (via `review-conventions`) |
+| `audit` | same as `audit list` — prints the bundles, runs nothing |
 | `audit security` | `idor-audit` · `mass-assignment-audit` · `response-exposure-audit` · `security-audit` |
 | `audit correctness` | `atomicity-audit` · `exception-audit` · `fire-and-forget-audit` · `idempotency-audit` |
 | `audit scaling` | `blocking-call-audit` · `nplus1-audit` · `observability-audit` · `stateless-audit` |
@@ -117,6 +117,6 @@ The last token sets the **scope**: where the skills look. It does not change whi
 | a path | `audit all order` | Every file under that feature folder. |
 | `.` | `audit all .` | The whole backend (`src/main/kotlin`), every file, regardless of git history. Thorough but slow. |
 
-Scope tokens (including `.`) are parsed **only by the `audit` umbrella**; the standalone skills take no scope argument. The scanners (`exception-audit`, `nplus1-audit`, etc.) always scan all of `src/main/kotlin`, `security-audit` and `review-conventions` work on a diff, and `migration-safety-audit` targets migration `.sql` files. To run a single skill over a chosen scope, go through the umbrella: `audit <bundle> <scope>`.
+Scope tokens (including `.`) are parsed **only by the `audit` umbrella**; the standalone skills take no scope argument. The scanners (`exception-audit`, `nplus1-audit`, etc.) always scan all of `src/main/kotlin`, `security-audit` works on a diff, and `migration-safety-audit` targets migration `.sql` files. To run a single skill over a chosen scope, go through the umbrella: `audit <bundle> <scope>`.
 
 
