@@ -2,31 +2,15 @@
 
 Guidance for AI agents working in this repository. Read this before making changes.
 
-⚠️ marks invariants whose violation is a bug or vulnerability. Each has an on-demand audit skill — see [Skills (audits)](#skills-audits).
-
 ## Contents
 
 - [Project](#project)
 - [Commands](#commands)
 - [Agent behaviour rules](#agent-behaviour-rules)
 - [Architecture](#architecture)
-- [Conventions](#conventions)
-  - [Reactive — never block ⚠️](#reactive--never-block-)
-  - [Reactive — no fire-and-forget ⚠️](#reactive--no-fire-and-forget-)
-  - [N+1 queries ⚠️](#n1-queries-)
-  - [Atomicity & transactions ⚠️](#atomicity--transactions-)
-  - [Idempotency — replay-safe writes ⚠️](#idempotency--replay-safe-writes-)
-  - [Error handling](#error-handling)
-  - [Mass assignment — never trust client-controlled input ⚠️](#mass-assignment--never-trust-client-controlled-input-)
-  - [Security: IDOR ⚠️](#security-idor-)
-  - [Response shape ⚠️](#response-shape-)
-  - [Observability — logging](#observability--logging)
-  - [Stateless architecture ⚠️](#stateless-architecture-)
-  - [Null handling](#null-handling)
-  - [Validation & i18n](#validation--i18n)
-- [Database & migrations](#database--migrations)
 - [Testing](#testing)
-- [Skills (audits)](#skills-audits)
+- [Engineering audit digest](#engineering-audit-digest)
+
 
 ## Project
 
@@ -70,191 +54,6 @@ Router (coRouter DSL + OpenAPI)  →  Handler (HTTP I/O, validation)  →  Servi
 - **Entity** (`domain/entity/`) — `data class` with `@Table` and nullable `@Id val id: Long? = null`.
 - **DTO** (`dto/`) — request types (validated input) and projection types for composite/joined data (`EnterpriseWithTeams`, `TeamWithMembers`, `TeamSummary`). Simple resources are returned as their entity directly. No response envelope — see [Response shape](#response-shape-).
 
-## Conventions
-
-### Reactive — never block ⚠️
-
-All APIs are non-blocking (coroutines over Reactor). R2DBC repositories and async clients are already non-blocking.
-
-**Any blocking/synchronous call (blocking Java SDK, JDBC, etc.) inside a `suspend fun` must be wrapped in `withContext(Dispatchers.IO)`.** Coroutines do not auto-detect blocking; an unwrapped blocking call stalls a WebFlux event-loop thread and degrades the whole server under load.
-
-```kotlin
-// ❌ blocks the event loop
-suspend fun load(id: String) = SomeSdk.retrieve(id)
-
-// ✅ runs on the IO pool
-suspend fun load(id: String) = withContext(Dispatchers.IO) { SomeSdk.retrieve(id) }
-```
-
-> `withContext(Dispatchers.IO)` is a thread switch, **not** a transaction.
-
-Audit: `blocking-call-audit`.
-
-### Reactive — no fire-and-forget ⚠️
-
-A cold producer that is never terminated **silently does nothing**:
-
-- a `Flow` (repository/service return) that is never `.collect`/`.toList()`'d — the query never runs;
-- a Reactor `Mono`/`Flux` (from interop) created but never `.await*()`'d, returned, or composed.
-
-Terminate every producer: suspend `CoroutineCrudRepository` calls (`save`/`delete`) already execute; for a Mono use `.awaitSingleOrNull()`/`.awaitFirstOrNull()`; for a Flow use `.collect`/`.toList()` or return it in the chain. Avoid bare `.subscribe()` — it swallows errors and drops the reactive context (tx, correlation).
-
-Audit: `fire-and-forget-audit`.
-
-### N+1 queries ⚠️
-
-**Never issue a DB call per item in a collection.** The pattern hides across method/layer boundaries — an outer query feeding a per-row inner query. Batch-fetch with an `…In(ids)` query, then join in memory.
-
-The canonical correct shape lives in `EnterpriseService.searchByName` and `TeamService.findTeamsWithEnterpriseInfo`: fetch the collection → one `findAllByXIn` / `findAllById` per relation → `groupBy`/`associateBy` the FK, assembled in memory. Constant query count regardless of result size — not one-per-row.
-
-```kotlin
-// ❌ N+1 — 1 query for users + 1 query per user for posts.
-//          25 users → 26 queries, and it grows with the result set.
-val users = userRepo.findAll().toList()              // query 1: fetch users
-users.map { user ->
-    postRepo.findAllByUserId(user.id).toList()       // query 2..N+1: one per user 👈
-}
-
-// ✅ 2 queries total, regardless of result size.
-val users = userRepo.findAll().toList()              // query 1: fetch users
-val userIds = users.mapNotNull { it.id }
-val postsByUser =
-    postRepo.findAllByUserIdIn(userIds)              // query 2: batch-fetch ALL posts at once
-        .toList()
-        .groupBy { it.userId }                       // in-memory grouping — no extra query
-users.map { user ->
-    user.copy(posts = postsByUser[user.id].orEmpty())
-}
-```
-
-Audit: `nplus1-audit`.
-
-### Atomicity & transactions ⚠️
-
-**Any service method doing 2+ DB mutations must be atomic.** A partial write (delete-then-failed-save, parent-saved-but-children-missing) is a bug.
-
-- **Default:** `@Transactional` (`org.springframework.transaction.annotation`) on the **public** service method. It's proxy-based, so it is **silently ignored** on `private` methods and on **self-invocation** (a method calling another in the same class). Put the boundary on the public entry point.
-- **For self-invoked or sub-block scopes**, use programmatic `TransactionalOperator`:
-  ```kotlin
-  class FooService(/* … */, transactionManager: ReactiveTransactionManager) {
-      private val tx = TransactionalOperator.create(transactionManager)
-      suspend fun bar() = tx.executeAndAwait { /* DB writes */ }
-  }
-  ```
-- Reactive tx context propagates through the coroutine context, so `@Transactional` survives a `withContext`, but `withContext` itself provides no transactional guarantee — atomicity still requires `@Transactional` or `TransactionalOperator`.
-- **Keep external calls (HTTP, email, object storage, payment SDKs) OUTSIDE the transaction** — a DB tx can't roll them back and they shouldn't hold a connection. Do reads first, open the tx for DB writes only, run side effects after commit. Make external mutations **idempotent** (deterministic keys, persisted external ids) so a crash between the call and the commit reconciles on retry instead of duplicating.
-
-Audit: `atomicity-audit`.
-
-### Idempotency — replay-safe writes ⚠️
-
-**A retried write must not duplicate work.** Retries are normal (client timeout, proxy, provider redelivery); design every unsafe operation to be replay-safe.
-
-- **Create-once invariants get a DB `UNIQUE` constraint.** An app-level pre-check (`findByX != null → Conflict`) alone races under concurrent requests. Catch `DataIntegrityViolationException` and rethrow as `AppException.Conflict(key, args, e)` — the canonical shape is `uq_team_members_team_user` + `UserService.assignToTeam`.
-- **External mutations** (none yet): a deterministic idempotency key or a persisted external id, so a crash-then-retry reconciles instead of duplicating — see [Atomicity & transactions](#atomicity--transactions-).
-- **Webhooks** (none yet): dedupe provider redelivery by event id (`INSERT … ON CONFLICT (event_id) DO NOTHING` inbox) before processing.
-
-Audit: `idempotency-audit`.
-
-### Error handling
-
-Throw `AppException.*` (`exception/AppException.kt`) — i18n-aware, user-safe message keys resolved by the global `ApplicationExceptionHandler`.
-
-**Why a marker type:** message safety can't be judged from the text — a built-in exception (e.g. `RuntimeException`) may carry SQL, paths, or internals. `AppException` is the *only* type whose message reaches the client (an allowlist); every other exception's message is suppressed by default (fail closed). Built-ins are at most mapped to a status code — never to their message.
-
-| Exception | Status |
-|---|---|
-| `AppException.BadRequest(key, args)` | 400 |
-| `AppException.Unauthorized(key, args)` | 401 |
-| `AppException.Forbidden(key, args)` | 403 |
-| `AppException.NotFound(key, args)` | 404 |
-| `AppException.Conflict(key, args)` | 409 |
-| `AppException.ValidationErrors(fieldErrors, summaryKey)` | 422 |
-
-- `key` is an i18n message key; `args` fills `{0}`, `{1}` placeholders (e.g. `AppException.NotFound("error.user.not.found", arrayOf(id))`).
-- Pass the original `cause` when wrapping a caught error: `AppException.Conflict(key, args, e)` (see `UserService.assignToTeam`).
-- Use `ValidationErrors` for multi-field business rules that Bean Validation annotations can't express (cross-field, DB-uniqueness).
-- `ConstraintViolationException` / `WebExchangeBindException` → 422 with per-field errors; `AccessDeniedException`, `ServerWebInputException`, `ResponseStatusException` are handled and their internals suppressed. **Don't** build ad-hoc error responses — extend the handler instead.
-- All errors return an **RFC 9457 problem detail** (`application/problem+json`): `type`, `title`, `status`, `detail` (the resolved message), `instance` (request path), plus extensions `correlationId` and `errors?`. Framework/5xx messages are generic to avoid leaking internals; the `correlationId` is logged with every failure.
-- `type` is derived from the message key (`error.username.taken` → `/errors/username-taken`) for `AppException.*` and validation errors; other errors keep `about:blank`. **Message keys are therefore part of the API contract — renaming one changes its `type` URI.**
-
-Audit: `exception-audit`.
-
-### Mass assignment — never trust client-controlled input ⚠️
-
-A client can put any value in a request body. **Accept only fields it's legitimately allowed to set; derive or authoritatively fetch everything else server-side.** If a field would let the client influence a server-owned value, it doesn't belong in the request DTO.
-
-Never accept from the client — set server-side: `id`, state/role/privilege flags (`role`, `status`, `verified`, …), timestamps (`createdAt`/`updatedAt`), and computed values. Current request DTOs (`UserRequest`, `TeamRequest`, `EnterpriseRequest`) correctly exclude `id` — entities default `@Id` to `null` and the DB assigns it.
-
-Audit: `mass-assignment-audit` (privilege/bookkeeping fields); ownership/identity ids → [Security: IDOR](#security-idor-).
-
-### Security: IDOR ⚠️
-
-**Ownership/identity ids** (`userId`, `ownerId`, an `enterpriseId` used for authorization) are the ownership special case of the same never-trust-client-input rule ([Mass assignment](#mass-assignment--never-trust-client-controlled-input-)) — the variant that depends on **who the caller is** — they must come from the authenticated principal, not the payload, and existence of a row must never imply authorization (ids are sequential `BIGINT`, hence enumerable).
-
-> This project has **no authentication yet.** Until a principal exists there is nothing to enforce ownership against. When authentication is added: any handler taking a resource id must verify the resource belongs to the authenticated principal — derive the principal from the auth context, scope the query (`findByIdAndOwnerId…`) or assert ownership, and throw `AppException.Forbidden` on mismatch (or `NotFound` when existence itself is sensitive).
-
-Audit: `idor-audit` (forward-looking until auth lands — inventories the id-taking surface).
-
-### Response shape ⚠️
-
-**Return the resource representation directly and let the HTTP status carry the semantics — no success envelope.** Returning an `@Table` entity directly is fine *when it carries no sensitive data* (`bodyValueAndAwait(user)`); the moment an entity would expose a secret or internal field, introduce a scoped `*Response` DTO (or a projection) instead of the entity.
-
-- **Status carries meaning:** `200` read, `201` created (returns the created resource), `201`/`204` with **no body** for a no-payload action (e.g. `assignToTeam`). Errors go through `ApplicationExceptionHandler` (RFC 9457 problem detail — see [Error handling](#error-handling)).
-- **No success envelope** (`DataResponse`/`{data,message}`). The one exception is a *paginated* collection, which may wrap items with page metadata — not yet used here.
-- **Never expose secrets/internal fields ⚠️:** credentials/secrets (`passwordHash`, tokens, `*Secret`) or internal bookkeeping (`deletedAt`, audit columns, internal flags) must never reach a serialized response. If an entity gains such a field, stop returning the entity and add a scoped `*Response` DTO. Don't leak another principal's PII (`email`/`phoneNumber`).
-- **Composite/joined data** uses a projection DTO (`EnterpriseWithTeams`, `TeamWithMembers`, `TeamSummary`) — there's no single entity to return.
-
-Audit: `response-exposure-audit`.
-
-### Observability — logging
-
-Failures must surface, and logs must not leak data.
-
-- Logging uses `io.github.oshai.kotlinlogging.KotlinLogging` (`private val logger = KotlinLogging.logger {}`). **Never** `println` / `System.out`.
-- **Don't swallow exceptions** — a blind `catch { }`, a catch returning `null`/a default without logging, or a reactive `onErrorResume { Mono.empty() }` hides a real failure. Either let it reach `ApplicationExceptionHandler` or log it with its cause.
-- The central handler logs 4xx-shaped failures at `warn` and 5xx at `error`, each prefixed with the `correlationId`. Match those levels.
-- **Never log secrets or PII** — no tokens/passwords, no `email`/`phoneNumber`, no full request/DTO bodies.
-
-Audit: `observability-audit`.
-
-### Stateless architecture ⚠️
-
-Keep instances stateless so the app can run behind a load balancer (any request may hit any instance). The concrete shared store / scheduler / lock is a deployment choice — this project stays infra-agnostic.
-
-- **No authoritative or consistency-critical state in process** — if losing it on restart, or two instances disagreeing, would be incorrect (not just a cache miss), it belongs in the DB or a shared store. A short-TTL local cache of DB-backed data is fine.
-- **`@Scheduled` fires on every instance** — if more than one runs, in-process schedules duplicate work. Drive periodic work from a single external trigger or guard it with a shared lock.
-
-Audit: `stateless-audit`.
-
-### Null handling
-
-Prefer a safe call over a redundant null-check-then-deref: `user?.email != null`, not `user != null && user.email != null`.
-
-**Positive checks only.** Keep the expanded form for `== null` and negated comparisons — collapsing flips the result when the receiver is null (e.g. `team != null && team.name != EXPECTED` must stay expanded, or the body NPEs). Review convention; no ktlint rule enforces it.
-
-### Validation & i18n
-
-- Request DTOs carry Jakarta Bean Validation annotations with i18n message keys: `@field:NotBlank(message = "{user.name.required}")`.
-- Handlers validate via `validator.validateAndThrow(request.awaitBody<T>(), request.locale())` (see `extension/ValidatorExtensions.kt`). This sets the locale, validates, and throws `ConstraintViolationException` on failure.
-- Messages live in `messages.properties` (English) and `messages_fr.properties` (French). Add every new key to **both**.
-- Clients select language with the `Accept-Language: fr` header; default is English.
-
-## Database & migrations
-
-All schema changes go through **Flyway** migrations in `src/main/resources/db/migration/` — never alter the DB directly. Flyway applies migrations on startup.
-
-- **Before adding a migration:** list `src/main/resources/db/migration/` for the highest `V<N>` and name yours `V<N+1>__<description>.sql`.
-- **Primary keys:** `id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY`, always first.
-- **Foreign keys:** named constraint (`fk_<table>_<ref>`); index the FK column when it drives lookups.
-- **`ON DELETE CASCADE`:** only on join/association tables, where a row has no meaning without its parent (e.g. `team_members` → `teams`/`users`). Keep the default RESTRICT for parents that own substantial entities (e.g. `teams` → `enterprises`) so a single delete can't silently wipe a subtree.
-- **Enums:** `VARCHAR(N) NOT NULL DEFAULT 'X' CHECK (col IN (...))` — no PostgreSQL `ENUM` type.
-- Prefer `NOT NULL` + `DEFAULT`; allow nullable only when absence is meaningful.
-- `COMMENT ON COLUMN` for any non-obvious column.
-- **Soft delete** (if introduced): nullable `deleted_at TIMESTAMP` as the last column, with a partial index `WHERE deleted_at IS NOT NULL` and a comment.
-- Map snake_case columns to camelCase properties.
-
-Audit: `migration-safety-audit`.
 
 ## Testing
 
@@ -265,28 +64,125 @@ Audit: `migration-safety-audit`.
 - Test names use backtick descriptions: `` `create user - returns 422 when required fields are blank` ``.
 - Docker must be available to run the suite.
 
-## Skills (audits)
+# Engineering audit digest
 
-| Rule / area | Skill |
-|---|---|
-| Reactive — no blocking calls | `blocking-call-audit` |
-| Reactive — no fire-and-forget (unawaited publishers) | `fire-and-forget-audit` |
-| N+1 queries | `nplus1-audit` |
-| Atomicity & transactions | `atomicity-audit` |
-| Idempotency — replay-safe writes | `idempotency-audit` |
-| Error handling (`AppException` pattern) | `exception-audit` |
-| Mass assignment — never trust client-controlled input (privilege/bookkeeping fields in request DTOs) | `mass-assignment-audit` |
-| Security — IDOR (ownership of id-taking endpoints) | `idor-audit` |
-| Response shape (no envelope, no secret/PII leak) | `response-exposure-audit` |
-| Observability — logging | `observability-audit` |
-| Stateless architecture (in-process state, `@Scheduled`) | `stateless-audit` |
-| Database & migration safety (per-file `.sql` review) | `migration-safety-audit` |
-| General security vuln pass (diff/PR; portable `/security-review`) | `security-audit` |
-| Run a bundle (`security`/`correctness`/`scaling`/`db`/`all`) over a scope | `audit` |
+Apply the invariants below to all code you review, audit, or generate.
+Detailed per-topic checklists live in the installed `audit` skill under
+`references/` — by default `.agents/skills/audit/references/`. Read the
+matching file (map at the bottom) before doing an in-depth audit.
 
-On-demand audits that verify the ⚠️ rules above live in `.github/skills/<name>/SKILL.md` (Copilot reads them there natively; Claude Code reads them via the `.claude/skills` symlink). They are **not** auto-loaded — invoke the relevant one when reviewing or adding code. `audit` runs a whole bundle (by `tags:`) over a chosen scope. Each skill is tagged `security` / `correctness` / `scaling` / `db` / `meta` — `audit list` prints the live bundle map.
+## Invariants (always apply)
 
-The scope is the last token and sets where the skills look, not which skills run. With no scope token, only the current diff is audited, so a clean tree yields nothing. A layer name (`service`, `handler`, …) or a path audits every file there, whole files. `.` audits the whole backend (`src/main/kotlin`) regardless of git history. Example: `audit all .` runs every audit skill over the whole codebase.
+### Access & data security
 
-Scope tokens (including `.`) are parsed only by the `audit` umbrella. Invoked directly, the individual skills take no scope argument: the scanners always cover all of `src/main/kotlin`, `security-audit` works on the current diff, and `migration-safety-audit` reviews migration `.sql` files. To run one skill over a chosen scope, go through `audit`.
+- **Authorization** — every state-changing or sensitive action is permission-checked server-side at the point of action,
+  not only in the UI or routing layer.
+- **Authentication & sessions** — sessions are regenerated on login and invalidated on logout; credential and reset
+  flows do not reveal whether an account exists.
+- **IDOR** — any resource looked up by an identifier from the request is verified as owned by or visible to the current
+  principal; a valid ID is not authorization.
+- **Data exposure** — responses, errors, and logs contain only fields explicitly intended for the consumer; never whole
+  models, stack traces, or PII by default.
+- **Crypto & data protection** — passwords use adaptive hashing; tokens come from a CSPRNG; secret comparisons are
+  constant-time; no homemade crypto.
+- **Output encoding** — every user-controlled value rendered into HTML, JS, CSS, URLs, headers, or emails is encoded for
+  that exact context.
+- **Tenant isolation** — in multi-tenant code, every query, cache key, and background job is scoped by tenant; no
+  implicit global reads.
+- **CSRF** — state-changing endpoints authenticated by cookies verify a CSRF token or origin (not applicable to pure
+  token-based APIs).
+- **Mass assignment** — request data is never bound wholesale onto models; every binding site has an explicit,
+  per-context allowlist of writable fields (allowlists, never denylists).
+
+### Input, API & dependencies
+
+- **Injection** — queries, shell commands, templates, and paths are built with parameterization or escaping APIs, never
+  by concatenating input.
+- **Configuration** — production config denies by default: debug off, CORS explicit, security headers present, cookies
+  Secure/HttpOnly.
+- **Secrets** — credentials live in env vars or secret managers; never hardcoded, logged, or committed; rotation is
+  possible.
+- **API contract & validation** — every input is validated at the boundary for type, bounds, and allowed fields; unknown
+  fields are rejected or ignored explicitly.
+- **File handling** — file paths are never derived from raw input; uploads are constrained by type, size, and storage
+  location; served files cannot escape their root.
+- **SSRF** — server-side requests to user-influenced URLs validate the destination against an allowlist; redirect
+  targets count as destinations.
+- **Parser differentials** — a gate must interpret input exactly as its consumer does: anchored matches, exact-host
+  allowlists, validate the parsed object and pass that object on — never validate raw input and re-parse it.
+
+### Correctness
+
+- **Atomicity** — writes that must succeed together run in one transaction or have explicit compensation; partial state
+  never survives a failure.
+- **Idempotency** — any handler that can run twice (retries, webhooks, double submits) produces the same outcome as
+  running once.
+- **Background work** — jobs have bounded retries, dead-letter handling, and timeouts, and tolerate duplicate or
+  out-of-order delivery.
+- **State management** — no check-then-act on shared state without a lock, atomic primitive, or database constraint
+  backing it.
+- **Exception handling** — errors are handled or propagated, never swallowed; catches are narrow, causes preserved,
+  resources released; HTTP boundaries return the status the condition means (404/401/403/422/409, never 200-with-error).
+- **Discarded async work** — every promise, future, task, or publisher is awaited, returned, composed, or
+  deliberately detached with error handling; a cold producer that is never subscribed silently never runs.
+
+### Operability
+
+- **N+1 queries** — never query inside a loop over a collection; load related data in bulk.
+- **Observability** — every failure path logs with context; new endpoints and jobs emit enough signal for their failures
+  to be visible in production.
+- **Migration safety** — schema changes deploy without downtime: no long locks, destructive changes split across
+  releases, rollback considered.
+- **Resource limits** — all work driven by input size is bounded: pagination, body and upload caps, rate limits, no
+  catastrophic regex.
+- **Blocking I/O in async code** — code on a cooperative scheduler (event loop, coroutines, reactor) never blocks: no
+  sync I/O, sleeps, or CPU-heavy work on the loop; blocking work is offloaded and outbound calls have timeouts.
+- **Schema design** — relationships enforced by real foreign keys with deliberate ON DELETE; hot query paths backed
+  by indexes; integrity rules (NOT NULL, unique, checks) live in the schema, not only in app validation.
+- **Statelessness** — in replicated apps, state lives in process memory or local disk only if losing it is harmless
+  and no peer replica needs it; sessions, counters, locks, uploads, and schedules live in shared stores.
+
+## Deep checklists — what to read when
+
+Read only the files matching what the code under audit does. Paths are
+relative to the `audit` skill's `references/` directory (by default
+`.agents/skills/audit/references/`); if a path does not resolve, locate the
+`audit` skill folder in your skills directory and resolve from there:
+
+| The code…                                            | Read                                                                                                      |
+|------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| Gates actions by role, permission, or ownership      | `access-data-security/authorization.md`                                                                   |
+| Handles login, logout, reset, tokens, sessions       | `access-data-security/authn-session.md`                                                                   |
+| Fetches/mutates a resource by an ID from the request | `access-data-security/idor.md` + `access-data-security/authorization.md`                                  |
+| Serializes models, formats errors, writes logs       | `access-data-security/data-exposure.md`                                                                   |
+| Hashes, encrypts, generates or compares secrets      | `access-data-security/crypto-data-protection.md`                                                          |
+| Renders user data into HTML/JS/URLs/headers/emails   | `access-data-security/output-encoding.md`                                                                 |
+| Touches data or caches in a multi-tenant app         | `access-data-security/tenant-isolation.md`                                                                |
+| Changes state with cookie/session-based auth         | `access-data-security/csrf.md`                                                                            |
+| Binds request payloads onto models/entities          | `access-data-security/mass-assignment.md`                                                                 |
+| Builds queries/commands/templates/paths from input   | `input-api-dependency/injection.md`                                                                       |
+| Configures CORS, headers, cookies, debug, env        | `input-api-dependency/config.md`                                                                          |
+| Touches API keys, credentials, tokens                | `input-api-dependency/secrets.md`                                                                         |
+| Validates (or should validate) request input         | `input-api-dependency/api-contract-validation.md`                                                         |
+| Accepts, stores, processes, or serves files          | `input-api-dependency/file-handling.md`                                                                   |
+| Makes network requests to user-influenced URLs       | `input-api-dependency/ssrf.md`                                                                            |
+| Adds validators, regexes, allowlists, or parsing    | `input-api-dependency/parser-differentials.md`                                                            |
+| Writes to multiple tables/stores/systems at once     | `correctness/atomicity.md`                                                                                |
+| Handles payments, webhooks, retries, emails          | `correctness/idempotency.md`                                                                              |
+| Runs jobs, scheduled tasks, or queue consumers       | `correctness/background-work.md`                                                                          |
+| Shares mutable state, caches, counters               | `correctness/state-management.md`                                                                         |
+| Catches/throws errors, maps errors to HTTP statuses  | `correctness/exception-handling.md`                                                                       |
+| Creates promises, futures, tasks, or publishers     | `correctness/discarded-async.md`                                                                          |
+| Loads related data inside a loop over a collection   | `operability/nplus1.md`                                                                                   |
+| Adds endpoints/jobs, handles errors                  | `operability/observability.md`                                                                            |
+| Changes database schema                              | `operability/migration-safety.md` + `operability/schema-design.md`                                        |
+| Does work proportional to input size                 | `operability/resource-limits.md`                                                                          |
+| Runs async/await, event-loop, or coroutine code      | `operability/blocking-io-async.md`                                                                        |
+| Is meant to scale out / run as multiple replicas    | `operability/statelessness.md`                                                                            |
+| — Verifying candidate findings before reporting     | `methodology/verify.md`                                                                                   |
+| — Fixing confirmed findings                          | `remediation/authz-patterns.md`, `remediation/async-patterns.md`, `remediation/observability-patterns.md` |
+
+Do not manufacture findings for topics that do not apply (e.g., CSRF on a
+token-authenticated API). Verify every finding against surrounding code
+(middleware, base classes, callers) before reporting it.
 

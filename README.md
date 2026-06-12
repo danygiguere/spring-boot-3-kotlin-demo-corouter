@@ -87,36 +87,4 @@ A Postman collection (`postman_collection.json`) is included at the root of the 
 | `./gradlew spotlessApply` | Auto-format all source files |
 | `./gradlew spotlessCheck` | Check formatting without modifying files (CI) |
 
-## Conventions & Audits (for AI agents)
-
-This repo documents its own conventions so AI coding agents follow the project's patterns.
-
-- **[`AGENTS.md`](AGENTS.md)** — the project playbook: layering (router → handler → service → repository), the `AppException` error pattern, response hygiene (no envelope, no secret/PII leak), database & migration conventions, and more. Agents should read it before making changes.
-- **`.github/skills/*`** — focused, domain-specific audit skills that enforce those conventions. The `audit` skill is an umbrella runner that selects skills by **bundle** and runs them over a **scope** (the current diff by default, or a layer / the whole repo).
-
-Run `audit list` to print the live bundle → skills map. Current bundles:
-
-| Command | Skills it runs |
-|---|---|
-| `audit` | same as `audit list` — prints the bundles, runs nothing |
-| `audit security` | `idor-audit` · `mass-assignment-audit` · `response-exposure-audit` · `security-audit` |
-| `audit correctness` | `atomicity-audit` · `exception-audit` · `fire-and-forget-audit` · `idempotency-audit` |
-| `audit scaling` | `blocking-call-audit` · `nplus1-audit` · `observability-audit` · `stateless-audit` |
-| `audit db` | `migration-safety-audit` |
-| `audit all` | every audit skill above |
-| `audit list` | prints the live bundle → skills map |
-
-Each skill also runs on its own (e.g. `idor-audit`, `migration-safety-audit`).
-
-The last token sets the **scope**: where the skills look. It does not change which skills run.
-
-| Scope token | Example | What gets audited |
-|---|---|---|
-| (none) | `audit all` | Only the current diff (uncommitted or branch changes). A clean tree means there is nothing to audit. |
-| a layer name (`router`, `handler`, `service`, `repository`, `domain`, `dto`, …) | `audit security service` | Every file in that layer, whole files, not just changed lines. |
-| a path | `audit all order` | Every file under that feature folder. |
-| `.` | `audit all .` | The whole backend (`src/main/kotlin`), every file, regardless of git history. Thorough but slow. |
-
-Scope tokens (including `.`) are parsed **only by the `audit` umbrella**; the standalone skills take no scope argument. The scanners (`exception-audit`, `nplus1-audit`, etc.) always scan all of `src/main/kotlin`, `security-audit` works on a diff, and `migration-safety-audit` targets migration `.sql` files. To run a single skill over a chosen scope, go through the umbrella: `audit <bundle> <scope>`.
-
 
