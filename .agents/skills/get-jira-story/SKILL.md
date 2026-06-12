@@ -66,6 +66,10 @@ Transforme un récit Jira en une fiche markdown propre, locale et gitignorée.
    - **sprint** → via `names`, le `customfield_*` dont le nom matche `/^sprint/i` : c'est
      un tableau d'objets sprint (`name`/`state`/`boardId`). Prends le `name` du sprint
      actif (`state == "active"`), sinon le dernier. Si absent → `N/A`.
+   - **étiquettes** → `fields.labels` (tableau de chaînes). Joins-les par `, `.
+     Si le tableau est vide → `N/A`.
+   - **créé le** → `fields.created` ; **mis à jour le** → `fields.updated`. Ce sont des
+     timestamps ISO (ex. `2026-06-08T09:15:00.000-0400`) → formate en `YYYY-MM-DD HH:MM`.
 
    ⚠️ N'invente jamais une valeur : en cas d'ambiguïté, mets `N/A`.
 
@@ -79,6 +83,9 @@ Transforme un récit Jira en une fiche markdown propre, locale et gitignorée.
    | Type | <type> |
    | Story Points | <points> |
    | Sprint | <sprint> |
+   | Étiquettes | <étiquettes> |
+   | Créé le | <créé le> |
+   | Mis à jour le | <mis à jour le> |
 
    ## Description
 
