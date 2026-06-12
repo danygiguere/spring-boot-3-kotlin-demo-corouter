@@ -48,6 +48,3 @@ libs/
 
 # Jira story scratch files (local context only, never committed)
 .jira/
-
-# GitHub token for create-pr skill (never committed)
-.github.env

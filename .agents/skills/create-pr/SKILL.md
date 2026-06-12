@@ -11,10 +11,11 @@ de l'utilisateur avant de push et de créer le PR.
 
 ## Pré-requis
 
-1. **Token** : lis `.github.env` → `GITHUB_TOKEN`. S'il est absent/vide, indique à
-   l'utilisateur de créer un token (GitHub → Settings → Developer settings → Personal
-   access tokens, fine-grained, permission *Pull requests: Read and write*) et de le
-   coller dans `.github.env`, puis arrête-toi.
+1. **Token** : lis `GITHUB_TOKEN` depuis `.env`
+   (`GITHUB_TOKEN=$(grep -E '^GITHUB_TOKEN=' .env | cut -d= -f2-)`). S'il est absent/vide,
+   indique à l'utilisateur de créer un token (GitHub → Settings → Developer settings →
+   Personal access tokens, fine-grained, permission *Pull requests: Read and write*) et de
+   le coller dans `.env`, puis arrête-toi. Si `.env` n'existe pas, `cp .env.example .env`.
 2. **Owner/Repo** : déduis-les de `git remote get-url origin` (formes
    `git@github.com:OWNER/REPO.git` ou `https://github.com/OWNER/REPO.git`).
 3. **Branche** : `git branch --show-current`. Si c'est `main` (ou la branche par
@@ -41,8 +42,8 @@ de l'utilisateur avant de push et de créer le PR.
      - ...
 
      ## Jira
-     <si .jira/config.env a JIRA_BASE_URL : lien {{base}}/browse/<KEY>, KEY = nom de
-      branche s'il matche ^[A-Z][A-Z0-9]+-\d+$ ; sinon juste la clé>
+     <si .env a JIRA_BASE_URL : lien {{base}}/browse/<KEY>, KEY = nom de branche
+      s'il matche ^[A-Z][A-Z0-9]+-\d+$ ; sinon juste la clé>
      ```
    - Si un `.jira/<KEY>.md` existe, utilise-le pour le « Résumé ».
 
@@ -58,7 +59,7 @@ de l'utilisateur avant de push et de créer le PR.
    b. Crée le PR. Construis le JSON proprement (le body est multi-ligne) — écris la
       charge utile dans un fichier temporaire pour éviter les soucis d'échappement :
       ```bash
-      set -a; . .github.env; set +a
+      GITHUB_TOKEN=$(grep -E '^GITHUB_TOKEN=' .env | cut -d= -f2-)
       jq -n --arg t "<titre>" --arg b "<body>" --arg h "<branche>" \
         '{title:$t, body:$b, head:$h, base:"main"}' > .git/pr-payload.json
       curl -sS -X POST \

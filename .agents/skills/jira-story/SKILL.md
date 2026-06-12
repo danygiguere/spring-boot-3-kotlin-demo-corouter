@@ -17,17 +17,20 @@ Transforme un récit Jira en une fiche markdown propre, locale et gitignorée.
 ## Étapes
 
 1. **Déterminer le mode.**
-   - Si une **clé** est fournie ET que `.jira/config.env` existe avec un `JIRA_API_TOKEN`
-     non vide → **mode fetch** (étape 2a).
+   - Si une **clé** est fournie ET que `.env` contient un `JIRA_API_TOKEN` non vide
+     → **mode fetch** (étape 2a).
    - Sinon → **mode collage** (étape 2b).
 
-2a. **Mode fetch.** Lis `.jira/config.env` (`JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`)
-   et récupère le récit, en écrivant le résultat dans `.jira/payload.json` :
+2a. **Mode fetch.** Lis les variables Jira depuis `.env` (sans exécuter le fichier,
+   qui contient aussi la config DB), puis récupère le récit dans `.jira/payload.json`.
+   Cible **Jira Server/Data Center** : le Personal Access Token s'envoie en **Bearer**
+   (pas de Basic auth `email:token` comme sur Cloud), API en **v2** :
 
    ```bash
-   set -a; . .jira/config.env; set +a
-   curl -sS -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-     "$JIRA_BASE_URL/rest/api/latest/issue/<KEY>?expand=names" \
+   JIRA_BASE_URL=$(grep -E '^JIRA_BASE_URL=' .env | cut -d= -f2-)
+   JIRA_API_TOKEN=$(grep -E '^JIRA_API_TOKEN=' .env | cut -d= -f2-)
+   curl -sS -H "Authorization: Bearer $JIRA_API_TOKEN" \
+     "$JIRA_BASE_URL/rest/api/2/issue/<KEY>?expand=names" \
      -o .jira/payload.json
    ```
 
@@ -35,9 +38,10 @@ Transforme un récit Jira en une fiche markdown propre, locale et gitignorée.
      qui sert à localiser Story Points et Sprint de façon fiable (étape 3).
    - Si le JSON renvoyé contient une clé `errorMessages` (token invalide, récit
      introuvable, droits manquants), montre l'erreur à l'utilisateur et arrête-toi.
-   - Si `JIRA_API_TOKEN` est vide, indique à l'utilisateur de créer un token
-     (https://id.atlassian.com/manage-profile/security/api-tokens) et de le coller
-     dans `.jira/config.env`, puis arrête-toi.
+   - Si `.env` est absent, copie-le depuis `.env.example` (`cp .env.example .env`).
+   - Si `JIRA_API_TOKEN` est vide, indique à l'utilisateur de créer un Personal Access
+     Token dans son profil Jira (`<JIRA_BASE_URL>/secure/ViewProfile.jspa` → onglet
+     « Personal Access Tokens ») et de le coller dans `.env`, puis arrête-toi.
 
 2b. **Mode collage.** Lis `.jira/payload.json`. S'il est absent, vide, ou contient
    encore `{}`, demande à l'utilisateur soit de fournir une clé (mode fetch), soit de
@@ -48,9 +52,12 @@ Transforme un récit Jira en une fiche markdown propre, locale et gitignorée.
    - **titre** → `fields.summary`
    - **type** → `fields.issuetype.name`
    - **description** → `fields.description`. C'est SOIT :
-     - une **chaîne** (API en texte) → utilise telle quelle ;
-     - un **objet ADF** (`{"type":"doc","content":[...]}`) → aplatis en markdown :
-       `paragraph`→texte, `heading`→`#`, `bulletList`/`listItem`→`-`,
+     - une **chaîne** (Jira Server/DC = **wiki markup**) → garde-la telle quelle, ou
+       convertis le wiki markup en markdown : `h1.`/`h2.`→`#`/`##`, `*` puce→`-`,
+       `# ` numéroté→`1.`, `[texte|url]`→`[texte](url)`, `{code}...{code}`→bloc \`\`\` ,
+       `*gras*`/`_italique_` inchangés ;
+     - un **objet ADF** (`{"type":"doc","content":[...]}`, Jira Cloud) → aplatis en
+       markdown : `paragraph`→texte, `heading`→`#`, `bulletList`/`listItem`→`-`,
        `orderedList`→`1.`, `codeBlock`→bloc \`\`\` , `link`→`[texte](href)`,
        marks `strong`/`em`→`**`/`*`. Préserve une structure lisible.
    - **story points** → si le JSON contient `names`, trouve le `customfield_*` dont le
