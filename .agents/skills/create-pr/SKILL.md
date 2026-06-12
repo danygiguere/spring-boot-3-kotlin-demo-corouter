@@ -1,28 +1,24 @@
 ---
 name: create-pr
-description: Crée une pull request GitHub via l'API REST (curl + token, sans gh). Génère titre + body depuis les commits de la branche, LES MONTRE pour approbation, puis push et crée le PR. Use when the user wants to open a PR for the current branch.
+description: Prépare une pull request GitHub via une URL "compare" pré-remplie (sans token, sans gh). Génère titre + body depuis les commits de la branche, LES MONTRE pour approbation, puis donne l'URL à ouvrir — le dev clique "Create". Use when the user wants to open a PR for the current branch.
 ---
 
 # Create PR
 
-Ouvre une pull request GitHub pour la branche courante, sans `gh`, via l'API REST.
-**Ne pushe jamais** — c'est au dev de pousser sa branche ; le skill exige qu'elle soit
-déjà sur le remote. **Étape d'approbation obligatoire** : montre le titre et le body,
-attends le « go » de l'utilisateur avant de créer le PR.
+Prépare une pull request GitHub pour la branche courante, **sans `gh` et sans token** :
+le skill construit une URL « compare » pré-remplie (titre + body) que le dev ouvre dans le
+navigateur pour cliquer « Create ». **Ne pushe pas** — la branche doit déjà être sur le
+remote. **Étape d'approbation obligatoire** : montre le titre et le body, attends le
+« go » avant de générer l'URL.
 
 ## Pré-requis
 
-1. **Token** : lis `GITHUB_TOKEN` depuis `.env`
-   (`GITHUB_TOKEN=$(grep -E '^GITHUB_TOKEN=' .env | cut -d= -f2-)`). S'il est absent/vide,
-   indique à l'utilisateur de créer un token (GitHub → Settings → Developer settings →
-   Personal access tokens, fine-grained, permission *Pull requests: Read and write*) et de
-   le coller dans `.env`, puis arrête-toi. Si `.env` n'existe pas, `cp .env.example .env`.
-2. **Owner/Repo** : déduis-les de `git remote get-url origin` (formes
+1. **Owner/Repo** : déduis-les de `git remote get-url origin` (formes
    `git@github.com:OWNER/REPO.git` ou `https://github.com/OWNER/REPO.git`).
-3. **Branche** : `git branch --show-current`. Si c'est `main` (ou la branche par
+2. **Branche** : `git branch --show-current`. Si c'est `main` (ou la branche par
    défaut), arrête-toi — il faut être sur une branche de travail.
-4. **Base** : `main` par défaut.
-5. **Branche déjà poussée** : `git ls-remote --heads origin <branche>` doit renvoyer une
+3. **Base** : `main` par défaut.
+4. **Branche déjà poussée** : `git ls-remote --heads origin <branche>` doit renvoyer une
    ligne. Si c'est vide → **arrête-toi** et demande au dev de pousser d'abord
    (`git push -u origin <branche>`). Le skill ne pousse jamais lui-même.
 
@@ -74,26 +70,20 @@ attends le « go » de l'utilisateur avant de créer le PR.
    Demande explicitement son accord. S'il veut des modifs, applique-les et re-montre.
    **N'enchaîne pas** sur la création du PR sans un « go » clair.
 
-4. **Après approbation seulement** (la branche est déjà sur le remote — cf. pré-requis 5 ;
-   le skill ne pousse pas) :
-   a. Crée le PR. Construis le JSON proprement (le body est multi-ligne) — écris la
-      charge utile dans un fichier temporaire pour éviter les soucis d'échappement :
-      ```bash
-      GITHUB_TOKEN=$(grep -E '^GITHUB_TOKEN=' .env | cut -d= -f2-)
-      jq -n --arg t "<titre>" --arg b "<body>" --arg h "<branche>" \
-        '{title:$t, body:$b, head:$h, base:"main"}' > .git/pr-payload.json
-      curl -sS -X POST \
-        -H "Authorization: Bearer $GITHUB_TOKEN" \
-        -H "Accept: application/vnd.github+json" \
-        "https://api.github.com/repos/OWNER/REPO/pulls" \
-        -d @.git/pr-payload.json
-      ```
-      (Si `jq` n'est pas dispo, échappe le JSON à la main avec soin.)
-   b. Nettoie : `rm -f .git/pr-payload.json`.
+4. **Après approbation seulement** (la branche est déjà sur le remote — cf. pré-requis 4) :
+   construis l'**URL « compare » pré-remplie**. Le titre et le body doivent être
+   **URL-encodés** (le body est multi-ligne) — utilise `jq @uri` :
+   ```bash
+   ENC_T=$(jq -rn --arg x "<titre>" '$x|@uri')
+   ENC_B=$(jq -rn --arg x "<body>"  '$x|@uri')
+   echo "https://github.com/OWNER/REPO/compare/main...<branche>?expand=1&title=$ENC_T&body=$ENC_B"
+   ```
+   (Sans `jq` : `python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))' "<texte>"`.)
 
-5. **Résultat** :
-   - succès → extrais `html_url` de la réponse et donne le lien du PR à l'utilisateur ;
-   - erreur (`errorMessages`, « A pull request already exists », 401/403) → montre le
-     message tel quel et n'essaie pas de contourner.
+5. **Résultat** : donne l'URL à l'utilisateur en lui disant d'**ouvrir le lien** → le
+   formulaire GitHub s'affiche titre + body pré-remplis → il clique **« Create pull
+   request »**. Le skill **ne crée pas** le PR lui-même et **ne merge jamais**.
 
-   **Ne merge jamais** le PR. Laisse l'utilisateur décider.
+   ⚠️ Si le body est très long, l'URL peut dépasser la limite du navigateur (~8 ko) et
+   être tronquée. Dans ce cas, donne l'URL avec le **titre seul** et fournis le **body à
+   part** pour qu'il le colle à la main dans le formulaire.
