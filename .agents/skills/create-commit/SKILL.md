@@ -1,9 +1,9 @@
 ---
-name: commit-changes
-description: Examine le diff courant, génère un message de commit au style du repo, puis commit (l'invocation du skill EST la demande explicite). Ne push pas. Use when the user wants to commit their current changes. Run as many times as needed during a story.
+name: create-commit
+description: Examine le diff courant, génère un message de commit au style du repo, puis commit (l'invocation du skill EST la demande explicite). Ne push jamais — c'est au dev de pusher. Use when the user wants to commit their current changes. Run as many times as needed during a story.
 ---
 
-# Commit changes
+# Create commit
 
 Examine les modifications courantes, rédige un message au style du repo, et committe.
 Invoquer ce skill vaut demande explicite de commit (cf. AGENTS.md). **Ne push jamais.**

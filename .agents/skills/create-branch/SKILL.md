@@ -6,7 +6,7 @@ description: Crée/bascule sur la branche d'un récit Jira (ex. PANACCESD-1) dep
 # Create branch
 
 Crée la branche au nom du récit Jira et bascule dessus. Action ponctuelle, en début de
-travail. **Ne commit rien** (voir le skill `commit-changes` pour ça).
+travail. **Ne commit rien** (voir le skill `create-commit` pour ça).
 
 ## Étapes
 
