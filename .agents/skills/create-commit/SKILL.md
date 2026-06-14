@@ -1,38 +1,34 @@
 ---
 name: create-commit
-description: Examine le diff courant, génère un message de commit au style du repo, puis commit (l'invocation du skill EST la demande explicite). Ne push jamais — c'est au dev de pusher. Use when the user wants to commit their current changes. Run as many times as needed during a story.
+description: Suggère un message de commit prêt à copier-coller — ne committe jamais, ne stage jamais. L'utilisateur exécute lui-même la commande. Use when the user wants to commit their current changes.
+allowed-tools: Bash(python3:*)
 ---
 
-# Create commit
+# Create commit (suggestion only)
 
-Examine les modifications courantes, rédige un message au style du repo, et committe.
-Invoquer ce skill vaut demande explicite de commit (cf. AGENTS.md). **Ne push jamais.**
+**Never run `git add` or `git commit`.** The user runs the command themselves.
 
-## Étapes
+## Steps
 
-1. **Examiner le diff** :
-   - `git status --short` pour la vue d'ensemble ;
-   - `git diff HEAD` (stagé + non stagé vs dernier commit) pour le contenu.
-   - S'il n'y a **aucune** modification, dis-le et arrête-toi (rien à committer).
-
-2. **Comprendre l'intention** (optionnel) : si un `.jira/<KEY>.md` existe (clé déduite de
-   la branche courante si elle matche `^[A-Z][A-Z0-9]+-\d+$`), lis-le pour le contexte.
-
-3. **Rédiger le message** au style du repo (vérifie via `git log --oneline -15`) :
-   - **sujet** à l'impératif, capitalisé, ≤ ~50 caractères, **sans** point final,
-     **sans** préfixe conventional (`feat:` etc.), **sans** la clé Jira (la branche la
-     porte déjà → Jira lie automatiquement) ;
-   - décris ce que fait *réellement* le diff, pas un titre de récit recopié ;
-   - si le diff couvre plusieurs aspects, ajoute un **corps** en bullets (`- ...`)
-     après une ligne vide.
-
-4. **Montrer le message** proposé à l'utilisateur dans un bloc, puis **committer** :
+1. Run the preflight script (one call replaces git status + diff + log):
    ```bash
-   git add -A
-   git commit -m "<sujet>" [-m "<corps>"]
+   python3 .agents/scripts/preflight_commit.py
    ```
-   - `git add -A` stage tout le travail courant (`.jira/` est gitignored, donc exclu).
-   - Si l'utilisateur a demandé de ne stager qu'une partie, respecte-le.
+   If it prints `NOTHING TO COMMIT`, report that and stop.
 
-5. **Ne pas push.** Confirme le hash + sujet du commit créé et rappelle que le push
-   reste à faire manuellement.
+2. From the output, write ONE commit message matching the repo style:
+   - Subject: imperative mood, capitalised, ≤ 50 chars, no trailing period, no Jira key
+     prefix, no conventional-commit prefix (`feat:` etc.)
+   - Describe what the diff *actually does*, not the story title
+   - Optional body: bullet list after a blank line, only if the diff spans several distinct changes
+
+3. Present the ready-to-run command in a copyable block:
+   ```bash
+   git add -A && git commit -m "Subject here"
+   ```
+   Or with a body:
+   ```bash
+   git add -A && git commit -m "Subject here" -m "- point one\n- point two"
+   ```
+
+4. Stop. Do not commit, do not push. The user copies and runs the command.
