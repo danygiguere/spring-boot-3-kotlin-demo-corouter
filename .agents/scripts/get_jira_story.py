@@ -4,7 +4,7 @@ Fetch a Jira story and write .jira/<KEY>.md.
 Targets Jira Server/Data Center (Bearer token, API v2).
 Falls back to reading .jira/payload.json if no token/key is available.
 """
-import json, re, subprocess, sys
+import json, re, sys, urllib.error, urllib.request
 from pathlib import Path
 
 
@@ -148,12 +148,15 @@ def main():
 
     if key_arg and jira_token and jira_base_url:
         url = f"{jira_base_url}/rest/api/2/issue/{key_arg}?expand=names"
-        result = subprocess.run(
-            ['curl', '-sS', '-H', f'Authorization: Bearer {jira_token}', url, '-o', str(payload_path)],
-            capture_output=True, text=True,
-        )
-        if result.returncode != 0:
-            print(f"ERROR: curl failed: {result.stderr}")
+        req = urllib.request.Request(url, headers={'Authorization': f'Bearer {jira_token}'})
+        try:
+            with urllib.request.urlopen(req) as resp:
+                payload_path.write_bytes(resp.read())
+        except urllib.error.HTTPError as e:
+            print(f"ERROR: HTTP {e.code} from Jira API: {e.reason}")
+            sys.exit(1)
+        except urllib.error.URLError as e:
+            print(f"ERROR: Cannot reach Jira ({e.reason})")
             sys.exit(1)
     elif not payload_path.exists() or payload_path.stat().st_size == 0:
         if not jira_token:

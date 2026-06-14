@@ -48,3 +48,5 @@ libs/
 
 # Jira story scratch files (local context only, never committed)
 .jira/
+
+__pycache__/
