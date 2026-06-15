@@ -7,8 +7,10 @@ Usage:
   python3 preflight_pr.py            # prints the detected default base, then context vs it
   python3 preflight_pr.py <base>     # uses <base> as the comparison base
 """
-import re, subprocess, sys
+import json, re, subprocess, sys
 from pathlib import Path
+
+KEY_RE = re.compile(r'^[A-Z][A-Z0-9]+-\d+$')
 
 TEST_DIFF_LIMIT = 6_000
 BASE_CANDIDATES = ('master', 'main', 'develop')
@@ -33,6 +35,21 @@ def read_env(key):
 def branch_exists(name):
     _, code = run('git', 'rev-parse', '--verify', '--quiet', name)
     return code == 0
+
+
+def resolve_jira_key(branch):
+    # The Jira key drives which .jira/<KEY>.md to paste. Source of truth is the
+    # "key" field of .jira/payload.json (the last fetched story); fall back to the
+    # branch name when it already looks like a key.
+    payload = Path('.jira/payload.json')
+    if payload.exists():
+        try:
+            key = json.loads(payload.read_text(encoding='utf-8')).get('key')
+            if key:
+                return key.strip()
+        except (json.JSONDecodeError, OSError):
+            pass
+    return branch if KEY_RE.match(branch) else None
 
 
 def detect_default_base():
@@ -83,18 +100,22 @@ def main():
         sys.exit(1)
 
     jira_base_url = read_env('JIRA_BASE_URL')
+    jira_key = resolve_jira_key(branch)
 
     print(f"=== BASE ===\n{base}")
     print(f"\n=== BRANCH ===\n{branch} (compared to {base})")
+    print(f"\n=== JIRA KEY ===\n{jira_key or '(none)'}")
     print(f"\n=== COMMITS ===\n{commits or '(no commits yet — uncommitted changes only)'}")
     print(f"\n=== FILES CHANGED (commits + uncommitted) ===\n{diff_stat or '(none)'}")
     print(f"\n=== JIRA_BASE_URL ===\n{jira_base_url or '(not set)'}")
 
-    if re.match(r'^[A-Z][A-Z0-9]+-\d+$', branch):
-        jira_md = Path(f'.jira/{branch}.md')
+    if jira_key:
+        jira_md = Path(f'.jira/{jira_key}.md')
         if jira_md.exists():
-            print(f"\n=== JIRA STORY ({branch}) ===")
+            print(f"\n=== JIRA STORY ({jira_key}) ===")
             print(jira_md.read_text(encoding='utf-8').strip())
+        else:
+            print(f"\n=== JIRA STORY ({jira_key}) ===\n(.jira/{jira_key}.md not found)")
 
     test_diff, _ = run('git', 'diff', merge_base, '--', 'src/test')
     print("\n=== TEST DIFF (src/test/) ===")

@@ -23,11 +23,11 @@ allowed-tools: Bash(python3:*)
    Stop and report any line starting with `ERROR`.
 
 2. From the output, generate:
-   - **Title**: `KEY - <concise imperative summary>`, where KEY is the branch name when
-     it is a Jira key (e.g. `PANCCAED-1 - Implémenter l'authentification JWT`). If the
-     branch is not a Jira key, omit the prefix. Single commit → derive the summary from
-     its subject. Multiple → synthesise. The diff also includes uncommitted changes, so
-     reflect those too.
+   - **Title**: `KEY - <concise imperative summary>`, where KEY is the value of the
+     `=== JIRA KEY ===` section of the preflight (e.g.
+     `PANCCAED-1 - Implémenter l'authentification JWT`). If that section is `(none)`,
+     omit the prefix. Single commit → derive the summary from its subject. Multiple →
+     synthesise. The diff also includes uncommitted changes, so reflect those too.
    - **Body** with this exact structure (the collapsible block needs the blank lines
      shown, or GitHub won't render the markdown inside it):
      ```
@@ -35,8 +35,9 @@ allowed-tools: Bash(python3:*)
      <summary>Requis de récit</summary>
 
      <copy here, character-for-character, the ENTIRE text printed under the
-      `=== JIRA STORY (<branch>) ===` header of the preflight output — this IS the
-      content of .jira/<branch>.md (title line, table, description, acceptance criteria).
+      `=== JIRA STORY (KEY) ===` header of the preflight output — this IS the content of
+      .jira/KEY.md (KEY comes from .jira/payload.json, not necessarily the branch name).
+      Include the title line, table, description, and acceptance criteria.
       Do NOT summarise, reorder, omit, or paraphrase any part of it.
       Only if the preflight printed no JIRA STORY section at all: write a 1-3 sentence
       summary of the branch's goal instead.>
