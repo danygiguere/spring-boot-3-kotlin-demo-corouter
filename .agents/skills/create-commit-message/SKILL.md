@@ -1,5 +1,5 @@
 ---
-name: create-commit
+name: create-commit-message
 description: Suggère un message de commit prêt à copier-coller — ne committe jamais, ne stage jamais. L'utilisateur exécute lui-même la commande. Use when the user wants to commit their current changes.
 allowed-tools: Bash(python3:*)
 ---
