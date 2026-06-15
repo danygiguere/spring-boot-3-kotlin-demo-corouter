@@ -14,7 +14,7 @@ def read_env(key):
     env_file = Path('.env')
     if not env_file.exists():
         return ''
-    for line in env_file.read_text().splitlines():
+    for line in env_file.read_text(encoding='utf-8').splitlines():
         line = line.strip()
         if line.startswith(f'{key}='):
             return line[len(key) + 1:].strip()
@@ -127,12 +127,12 @@ def ensure_gitignore():
     gi = Path('.gitignore')
     entry = '.jira/'
     if gi.exists():
-        if entry in gi.read_text():
+        if entry in gi.read_text(encoding='utf-8'):
             return
-        text = gi.read_text().rstrip()
-        gi.write_text(text + f'\n{entry}\n')
+        text = gi.read_text(encoding='utf-8').rstrip()
+        gi.write_text(text + f'\n{entry}\n', encoding='utf-8')
     else:
-        gi.write_text(f'{entry}\n')
+        gi.write_text(f'{entry}\n', encoding='utf-8')
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -169,7 +169,7 @@ def main():
         sys.exit(1)
 
     try:
-        data = json.loads(payload_path.read_text())
+        data = json.loads(payload_path.read_text(encoding='utf-8'))
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON in {payload_path}: {e}")
         sys.exit(1)
@@ -209,7 +209,8 @@ def main():
         f"| Créé le | {created} |\n"
         f"| Mis à jour le | {updated} |\n\n"
         f"## Description\n\n"
-        f"{description}\n"
+        f"{description}\n",
+        encoding='utf-8',
     )
 
     ensure_gitignore()
