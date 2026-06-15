@@ -109,15 +109,32 @@ def format_dt(dt_str):
     return f"{m.group(1)}-{m.group(2)}-{m.group(3)} {m.group(4)}:{m.group(5)}" if m else dt_str
 
 
+def _sprint_str_field(s, field):
+    # Jira Server greenhopper format: ...[id=12,state=ACTIVE,name=Sprint 7,startDate=...]
+    m = re.search(rf'\b{field}=(.*?)(?:,\s*\w+=|\])', s)
+    return m.group(1).strip() if m else ''
+
+
+def _sprint_entry(s):
+    if isinstance(s, dict):
+        return s.get('name', ''), str(s.get('state', '')).lower()
+    if isinstance(s, str):
+        return (_sprint_str_field(s, 'name') or s), _sprint_str_field(s, 'state').lower()
+    return str(s), ''
+
+
 def resolve_sprint(val):
     if not val:
         return 'N/A'
     if isinstance(val, list):
-        active = [s for s in val if isinstance(s, dict) and s.get('state') == 'active']
-        s = active[0] if active else val[-1]
-        return s.get('name', 'N/A') if isinstance(s, dict) else str(s)
-    if isinstance(val, dict):
-        return val.get('name', 'N/A')
+        parsed = [_sprint_entry(s) for s in val]
+        active = [name for name, state in parsed if state == 'active']
+        if active:
+            return active[0]
+        return parsed[-1][0] if parsed else 'N/A'
+    if isinstance(val, (dict, str)):
+        name = _sprint_entry(val)[0]
+        return name or 'N/A'
     return str(val)
 
 
@@ -188,6 +205,9 @@ def main():
     issue_type = (fields.get('issuetype') or {}).get('name', 'N/A')
     description = parse_description(fields.get('description'))
     labels = ', '.join(fields.get('labels', [])) or 'N/A'
+    fix_versions = ', '.join(
+        v.get('name', '') for v in (fields.get('fixVersions') or []) if isinstance(v, dict)
+    ) or 'N/A'
     created = format_dt(fields.get('created'))
     updated = format_dt(fields.get('updated'))
 
@@ -205,6 +225,7 @@ def main():
         f"| Type | {issue_type} |\n"
         f"| Story Points | {story_points} |\n"
         f"| Sprint | {sprint_name} |\n"
+        f"| Version(s) corrigée(s) | {fix_versions} |\n"
         f"| Étiquettes | {labels} |\n"
         f"| Créé le | {created} |\n"
         f"| Mis à jour le | {updated} |\n\n"
@@ -216,7 +237,7 @@ def main():
     ensure_gitignore()
 
     print(f"Written: {out_path}")
-    na = [f for f, v in [('Story Points', story_points), ('Sprint', sprint_name), ('Étiquettes', labels)] if v == 'N/A']
+    na = [f for f, v in [('Story Points', story_points), ('Sprint', sprint_name), ('Version(s) corrigée(s)', fix_versions), ('Étiquettes', labels)] if v == 'N/A']
     if na:
         print(f"Fields left as N/A: {', '.join(na)}")
 
