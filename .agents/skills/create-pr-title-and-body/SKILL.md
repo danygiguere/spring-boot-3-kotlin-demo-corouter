@@ -34,10 +34,12 @@ allowed-tools: Bash(python3:*)
      <details>
      <summary>Requis de récit</summary>
 
-     <paste the ENTIRE content of .jira/KEY.md verbatim — the JIRA STORY section from
-      the preflight, table + description + acceptance criteria, exactly as written.
-      Nothing omitted, nothing paraphrased. If there is no JIRA STORY section, write
-      a 1-3 sentence summary of the branch's goal instead.>
+     <copy here, character-for-character, the ENTIRE text printed under the
+      `=== JIRA STORY (<branch>) ===` header of the preflight output — this IS the
+      content of .jira/<branch>.md (title line, table, description, acceptance criteria).
+      Do NOT summarise, reorder, omit, or paraphrase any part of it.
+      Only if the preflight printed no JIRA STORY section at all: write a 1-3 sentence
+      summary of the branch's goal instead.>
 
      </details>
 
