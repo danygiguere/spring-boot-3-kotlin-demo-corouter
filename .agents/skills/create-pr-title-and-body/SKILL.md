@@ -34,13 +34,11 @@ allowed-tools: Bash(python3:*)
      <details>
      <summary>Requis de récit</summary>
 
-     <copy here, character-for-character, the ENTIRE text printed under the
-      `=== JIRA STORY (KEY) ===` header of the preflight output — this IS the content of
-      .jira/KEY.md (KEY comes from .jira/payload.json, not necessarily the branch name).
-      Include the title line, table, description, and acceptance criteria.
-      Do NOT summarise, reorder, omit, or paraphrase any part of it.
-      Only if the preflight printed no JIRA STORY section at all: write a 1-3 sentence
-      summary of the branch's goal instead.>
+     <copy here, character-for-character, ONLY the `| Champ | Valeur |` metadata table
+      from the `=== JIRA STORY (KEY) ===` section of the preflight output (KEY comes from
+      .jira/payload.json, not necessarily the branch name). Just that table — do NOT
+      include the title line, description, or acceptance criteria, and do not paraphrase.
+      If the preflight printed no JIRA STORY section at all, omit this <details> block.>
 
      </details>
 
