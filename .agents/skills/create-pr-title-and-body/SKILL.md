@@ -23,15 +23,23 @@ allowed-tools: Bash(python3:*)
    Stop and report any line starting with `ERROR`.
 
 2. From the output, generate:
-   - **Title**: concise, imperative, no Jira key in the title (the branch carries it).
-     Single commit → derive from its subject. Multiple → synthesise. The diff also
-     includes uncommitted changes, so reflect those too.
-   - **Body** with this exact structure:
+   - **Title**: `KEY - <concise imperative summary>`, where KEY is the branch name when
+     it is a Jira key (e.g. `PANCCAED-1 - Implémenter l'authentification JWT`). If the
+     branch is not a Jira key, omit the prefix. Single commit → derive the summary from
+     its subject. Multiple → synthesise. The diff also includes uncommitted changes, so
+     reflect those too.
+   - **Body** with this exact structure (the collapsible block needs the blank lines
+     shown, or GitHub won't render the markdown inside it):
      ```
-     ## Récit
-     <paste the full content of the JIRA STORY section verbatim — table + description +
-      acceptance criteria, exactly as written. Nothing omitted, nothing paraphrased.
-      If no JIRA STORY section: 1-3 sentence summary of the branch's goal.>
+     <details>
+     <summary>Requis de récit</summary>
+
+     <paste the ENTIRE content of .jira/KEY.md verbatim — the JIRA STORY section from
+      the preflight, table + description + acceptance criteria, exactly as written.
+      Nothing omitted, nothing paraphrased. If there is no JIRA STORY section, write
+      a 1-3 sentence summary of the branch's goal instead.>
+
+     </details>
 
      ## Lien Jira
      [KEY](JIRA_BASE_URL/browse/KEY)
