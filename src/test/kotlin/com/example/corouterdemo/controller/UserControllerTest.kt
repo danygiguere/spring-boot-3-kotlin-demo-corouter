@@ -56,4 +56,26 @@ class UserControllerTest : SharedTestContainers() {
             .jsonPath("$.errors.email")
             .isArray
     }
+
+    @Test
+    fun `get user - returns 404 with localized detail when not found`() {
+        webTestClient
+            .get()
+            .uri("/users/999999")
+            .header("Accept-Language", "fr")
+            .exchange()
+            .expectStatus()
+            .isNotFound
+            .expectBody()
+            .jsonPath("$.type")
+            .isEqualTo("/errors/user-not-found")
+            .jsonPath("$.status")
+            .isEqualTo(404)
+            .jsonPath("$.detail")
+            .isEqualTo("Utilisateur 999999 introuvable")
+            .jsonPath("$.instance")
+            .isEqualTo("/users/999999")
+            .jsonPath("$.correlationId")
+            .isNotEmpty
+    }
 }

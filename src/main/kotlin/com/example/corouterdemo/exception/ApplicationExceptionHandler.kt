@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolationException
 import org.springframework.context.MessageSource
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.http.MediaType
 import org.springframework.http.ProblemDetail
 import org.springframework.stereotype.Component
@@ -52,15 +53,22 @@ class ApplicationExceptionHandler(
         }
     }
 
-    private fun resolveMessage(
-        ex: AppException,
-        locale: Locale,
-    ): String = messageSource.getMessage(ex.messageKey, ex.args.ifEmpty { null }, ex.messageKey, locale)!!
-
     private fun resolveStatusMessage(
         status: HttpStatus,
         locale: Locale,
     ): String = messageSource.getMessage("error.${status.value()}", null, status.reasonPhrase, locale)!!
+
+    // A null typeKey keeps "type" as "about:blank": the error category is deliberately opaque.
+    private fun problemOf(
+        status: HttpStatus,
+        message: String,
+        errors: Map<String, List<String>>? = null,
+        typeKey: String? = null,
+    ): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(status, message).apply {
+            typeKey?.let { type = AppException.typeUri(it) }
+            errors?.let { setProperty("errors", it) }
+        }
 
     override fun handle(
         exchange: ServerWebExchange,
@@ -69,18 +77,7 @@ class ApplicationExceptionHandler(
         val correlationId = correlationId()
         val locale = exchange.localeContext.locale ?: Locale.ENGLISH
 
-        // typeKey feeds the RFC 9457 "type" URI — a stable, locale-independent
-        // identifier clients can switch on (the localized "detail" text cannot
-        // be matched programmatically). Null means the error category is
-        // deliberately opaque and "type" stays "about:blank".
-        data class ErrorDetail(
-            val status: HttpStatus,
-            val message: String,
-            val errors: Map<String, List<String>>? = null,
-            val typeKey: String? = null,
-        )
-
-        val detail =
+        val problem =
             when (ex) {
                 // ============================================================
                 // Custom app exceptions — messages are intentionally user-safe
@@ -94,17 +91,16 @@ class ApplicationExceptionHandler(
                 // (e.g. cross-field rules, DB uniqueness checks on update).
                 is AppException.ValidationErrors -> {
                     logAppException(ex, correlationId)
-                    val summary = messageSource.getMessage(ex.messageKey, null, "Validation failed", locale)!!
                     val resolvedErrors =
                         ex.fieldErrors.mapValues { (_, keys) ->
                             keys.map { key -> messageSource.getMessage(key, null, key, locale)!! }
                         }
-                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, resolvedErrors, ex.messageKey)
+                    ex.updateAndGetBody(messageSource, locale).apply { setProperty("errors", resolvedErrors) }
                 }
 
                 is AppException -> {
                     logAppException(ex, correlationId)
-                    ErrorDetail(ex.httpStatus, resolveMessage(ex, locale), typeKey = ex.messageKey)
+                    ex.updateAndGetBody(messageSource, locale)
                 }
 
                 // ============================================================
@@ -124,7 +120,7 @@ class ApplicationExceptionHandler(
                         "[$correlationId] Validation failed on ${exchange.request.method} ${exchange.request.path}: " +
                             fieldErrors.entries.joinToString(", ") { (field, messages) -> "$field: ${messages.joinToString("; ")}" }
                     }
-                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors, "error.validation_failed")
+                    problemOf(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors, "error.validation_failed")
                 }
 
                 // WebExchangeBindException — triggered by @Valid on @RequestBody in WebFlux
@@ -140,7 +136,7 @@ class ApplicationExceptionHandler(
                         "[$correlationId] Validation failed on ${exchange.request.method} ${exchange.request.path}: " +
                             fieldErrors.entries.joinToString(", ") { (field, messages) -> "$field: ${messages.joinToString("; ")}" }
                     }
-                    ErrorDetail(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors, "error.validation_failed")
+                    problemOf(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors, "error.validation_failed")
                 }
 
                 // ============================================================
@@ -148,49 +144,36 @@ class ApplicationExceptionHandler(
                 // replaced with generic responses to avoid leaking internals
                 // ============================================================
 
-                is AccessDeniedException -> {
-                    logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
-                    ErrorDetail(HttpStatus.FORBIDDEN, resolveStatusMessage(HttpStatus.FORBIDDEN, locale))
-                }
-
                 is ServerWebInputException, is IllegalArgumentException -> {
                     logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
-                    ErrorDetail(HttpStatus.BAD_REQUEST, resolveStatusMessage(HttpStatus.BAD_REQUEST, locale))
+                    problemOf(HttpStatus.BAD_REQUEST, resolveStatusMessage(HttpStatus.BAD_REQUEST, locale))
                 }
 
                 is NoSuchElementException -> {
                     logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
-                    ErrorDetail(HttpStatus.NOT_FOUND, resolveStatusMessage(HttpStatus.NOT_FOUND, locale))
+                    problemOf(HttpStatus.NOT_FOUND, resolveStatusMessage(HttpStatus.NOT_FOUND, locale))
                 }
 
                 is ResponseStatusException ->
                     if (ex.statusCode.is4xxClientError) {
                         logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.reason}" }
                         val status = HttpStatus.resolve(ex.statusCode.value()) ?: HttpStatus.BAD_REQUEST
-                        ErrorDetail(status, resolveStatusMessage(status, locale))
+                        problemOf(status, resolveStatusMessage(status, locale))
                     } else {
                         logger.error(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.reason}" }
-                        ErrorDetail(HttpStatus.INTERNAL_SERVER_ERROR, resolveStatusMessage(HttpStatus.INTERNAL_SERVER_ERROR, locale))
+                        problemOf(HttpStatus.INTERNAL_SERVER_ERROR, resolveStatusMessage(HttpStatus.INTERNAL_SERVER_ERROR, locale))
                     }
 
                 else -> {
                     logger.error(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
-                    ErrorDetail(HttpStatus.INTERNAL_SERVER_ERROR, resolveStatusMessage(HttpStatus.INTERNAL_SERVER_ERROR, locale))
+                    problemOf(HttpStatus.INTERNAL_SERVER_ERROR, resolveStatusMessage(HttpStatus.INTERNAL_SERVER_ERROR, locale))
                 }
             }
 
-        val problem = ProblemDetail.forStatus(detail.status)
-        problem.detail = detail.message
         problem.instance = URI.create(exchange.request.path.value())
-        // "error.username.taken" → "/errors/username-taken". Message keys are
-        // thereby part of the API contract: renaming one changes the type URI.
-        detail.typeKey?.let { key ->
-            problem.type = URI.create("/errors/" + key.removePrefix("error.").replace('.', '-').replace('_', '-'))
-        }
         problem.setProperty("correlationId", correlationId)
-        detail.errors?.let { problem.setProperty("errors", it) }
 
-        exchange.response.statusCode = detail.status
+        exchange.response.statusCode = HttpStatusCode.valueOf(problem.status)
         exchange.response.headers.contentType = MediaType.APPLICATION_PROBLEM_JSON
 
         val buffer = exchange.response.bufferFactory().wrap(objectMapper.writeValueAsBytes(problem))

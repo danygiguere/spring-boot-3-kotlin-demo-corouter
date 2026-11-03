@@ -1,42 +1,54 @@
 package com.example.corouterdemo.exception
 
 import org.springframework.http.HttpStatus
+import org.springframework.http.ProblemDetail
+import org.springframework.web.ErrorResponseException
+import java.net.URI
 
+/**
+ * Client-safe error. [messageKey] is resolved via `MessageSource` into the problem "detail"
+ * (see [updateAndGetBody]) and also feeds the stable "type" URI (see [typeUri]).
+ */
 sealed class AppException(
+    status: HttpStatus,
     val messageKey: String,
-    val args: Array<Any> = emptyArray(),
+    args: Array<Any> = emptyArray(),
     cause: Throwable? = null,
-    val httpStatus: HttpStatus,
-) : RuntimeException(messageKey, cause) {
+) : ErrorResponseException(status, ProblemDetail.forStatus(status), cause, messageKey, args) {
+    init {
+        body.detail = messageKey
+        body.type = typeUri(messageKey)
+    }
+
     class NotFound(
         messageKey: String,
         args: Array<Any> = emptyArray(),
         cause: Throwable? = null,
-    ) : AppException(messageKey, args, cause, HttpStatus.NOT_FOUND)
+    ) : AppException(HttpStatus.NOT_FOUND, messageKey, args, cause)
 
     class Conflict(
         messageKey: String,
         args: Array<Any> = emptyArray(),
         cause: Throwable? = null,
-    ) : AppException(messageKey, args, cause, HttpStatus.CONFLICT)
+    ) : AppException(HttpStatus.CONFLICT, messageKey, args, cause)
 
     class BadRequest(
         messageKey: String,
         args: Array<Any> = emptyArray(),
         cause: Throwable? = null,
-    ) : AppException(messageKey, args, cause, HttpStatus.BAD_REQUEST)
+    ) : AppException(HttpStatus.BAD_REQUEST, messageKey, args, cause)
 
     class Unauthorized(
         messageKey: String,
         args: Array<Any> = emptyArray(),
         cause: Throwable? = null,
-    ) : AppException(messageKey, args, cause, HttpStatus.UNAUTHORIZED)
+    ) : AppException(HttpStatus.UNAUTHORIZED, messageKey, args, cause)
 
     class Forbidden(
         messageKey: String,
         args: Array<Any> = emptyArray(),
         cause: Throwable? = null,
-    ) : AppException(messageKey, args, cause, HttpStatus.FORBIDDEN)
+    ) : AppException(HttpStatus.FORBIDDEN, messageKey, args, cause)
 
     /**
      * Use when business logic detects multiple field-level errors that cannot be expressed
@@ -58,5 +70,15 @@ sealed class AppException(
     class ValidationErrors(
         val fieldErrors: Map<String, List<String>>,
         summaryKey: String = "error.validation_failed",
-    ) : AppException(summaryKey, emptyArray(), null, HttpStatus.UNPROCESSABLE_ENTITY)
+    ) : AppException(HttpStatus.UNPROCESSABLE_ENTITY, summaryKey)
+
+    companion object {
+        /**
+         * Stable, locale-independent RFC 9457 "type" clients can switch on.
+         * "error.username.taken" → "/errors/username-taken". Message keys are thereby
+         * part of the API contract: renaming one changes the type URI.
+         */
+        fun typeUri(messageKey: String): URI =
+            URI.create("/errors/" + messageKey.removePrefix("error.").replace('.', '-').replace('_', '-'))
+    }
 }
