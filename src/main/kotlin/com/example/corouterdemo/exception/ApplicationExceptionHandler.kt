@@ -14,7 +14,6 @@ import org.springframework.stereotype.Component
 import org.springframework.web.bind.support.WebExchangeBindException
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.server.ServerWebExchange
-import org.springframework.web.server.ServerWebInputException
 import org.springframework.web.server.WebExceptionHandler
 import reactor.core.publisher.Mono
 import java.net.URI
@@ -27,9 +26,8 @@ import java.util.concurrent.CancellationException
  * Client-visible messages are an allowlist, not a denylist: [AppException] is the only
  * type whose message (an i18n key resolved via [MessageSource]) reaches the client.
  * Any other exception may carry internals (SQL, paths, state), so its message is never
- * exposed. The client receives a generic status phrase. A known built-in type can still
- * map to a specific status code (e.g. NoSuchElementException → 404), but only the code
- * is taken from it, never the text. The real message and stack trace go to the log,
+ * exposed. The client receives a generic status phrase. A [ResponseStatusException] keeps
+ * its 4xx status code, but never its text. The real message and stack trace go to the log,
  * tied to the response by the correlationId.
  */
 @Component
@@ -112,10 +110,7 @@ class ApplicationExceptionHandler(
                     val summary = messageSource.getMessage("error.validation_failed", null, "Validation failed", locale)!!
                     val fieldErrors =
                         ex.constraintViolations
-                            .groupBy(
-                                { it.propertyPath.toString() },
-                                { messageSource.getMessage(it.message, null, it.message, locale)!! },
-                            )
+                            .groupBy({ it.propertyPath.toString() }, { it.message })
                     logger.warn {
                         "[$correlationId] Validation failed on ${exchange.request.method} ${exchange.request.path}: " +
                             fieldErrors.entries.joinToString(", ") { (field, messages) -> "$field: ${messages.joinToString("; ")}" }
@@ -147,16 +142,7 @@ class ApplicationExceptionHandler(
                 // replaced with generic responses to avoid leaking internals
                 // ============================================================
 
-                is ServerWebInputException, is IllegalArgumentException -> {
-                    logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
-                    problemOf(HttpStatus.BAD_REQUEST, resolveStatusMessage(HttpStatus.BAD_REQUEST, locale))
-                }
-
-                is NoSuchElementException -> {
-                    logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }
-                    problemOf(HttpStatus.NOT_FOUND, resolveStatusMessage(HttpStatus.NOT_FOUND, locale))
-                }
-
+                // Includes ServerWebInputException (e.g. malformed JSON body).
                 is ResponseStatusException ->
                     if (ex.statusCode.is4xxClientError) {
                         logger.warn { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.reason}" }

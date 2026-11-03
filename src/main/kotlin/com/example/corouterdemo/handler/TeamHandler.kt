@@ -2,6 +2,7 @@ package com.example.corouterdemo.handler
 
 import com.example.corouterdemo.dto.TeamRequest
 import com.example.corouterdemo.extension.locale
+import com.example.corouterdemo.extension.pathVariableAsLong
 import com.example.corouterdemo.extension.validateAndThrow
 import com.example.corouterdemo.service.TeamService
 import jakarta.validation.Validator
@@ -25,7 +26,7 @@ class TeamHandler(
     }
 
     suspend fun findById(request: ServerRequest): ServerResponse {
-        val id = request.pathVariable("id").toLong()
+        val id = request.pathVariableAsLong("id")
         val team = teamService.findById(id)
         return ServerResponse.ok().bodyValueAndAwait(team)
     }
@@ -33,7 +34,7 @@ class TeamHandler(
     suspend fun findAll(request: ServerRequest): ServerResponse = ServerResponse.ok().bodyAndAwait(teamService.findAll())
 
     suspend fun findByEnterprise(request: ServerRequest): ServerResponse {
-        val enterpriseId = request.pathVariable("enterpriseId").toLong()
+        val enterpriseId = request.pathVariableAsLong("enterpriseId")
         return ServerResponse.ok().bodyAndAwait(teamService.findByEnterprise(enterpriseId))
     }
 

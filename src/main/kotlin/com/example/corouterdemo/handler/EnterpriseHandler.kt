@@ -3,6 +3,7 @@ package com.example.corouterdemo.handler
 import com.example.corouterdemo.dto.EnterpriseRequest
 import com.example.corouterdemo.exception.AppException
 import com.example.corouterdemo.extension.locale
+import com.example.corouterdemo.extension.pathVariableAsLong
 import com.example.corouterdemo.extension.validateAndThrow
 import com.example.corouterdemo.service.EnterpriseService
 import jakarta.validation.Validator
@@ -26,7 +27,7 @@ class EnterpriseHandler(
     }
 
     suspend fun findById(request: ServerRequest): ServerResponse {
-        val id = request.pathVariable("id").toLong()
+        val id = request.pathVariableAsLong("id")
         val enterprise = enterpriseService.findById(id)
         return ServerResponse.ok().bodyValueAndAwait(enterprise)
     }

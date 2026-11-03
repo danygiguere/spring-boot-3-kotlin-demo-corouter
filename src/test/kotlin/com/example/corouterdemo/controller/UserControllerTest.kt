@@ -98,4 +98,19 @@ class UserControllerTest : SharedTestContainers() {
         org.junit.jupiter.api.Assertions
             .assertEquals(header, result.responseBody!!["correlationId"])
     }
+
+    @Test
+    fun `get user - returns 400 when id is not a number`() {
+        webTestClient
+            .get()
+            .uri("/users/abc")
+            .exchange()
+            .expectStatus()
+            .isBadRequest
+            .expectBody()
+            .jsonPath("$.type")
+            .isEqualTo("/errors/path-param-invalid")
+            .jsonPath("$.detail")
+            .isEqualTo("Path parameter 'id' must be a number")
+    }
 }
