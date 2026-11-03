@@ -7,10 +7,8 @@ import org.springframework.context.i18n.SimpleLocaleContext
 import org.springframework.web.reactive.function.server.ServerRequest
 import java.util.Locale
 
-fun ServerRequest.locale(): Locale {
-    val range = headers().acceptLanguage().firstOrNull()?.range ?: return Locale.ENGLISH
-    return Locale.forLanguageTag(range)
-}
+/** The exchange locale from LocaleContextResolver — the same one the error handler uses. */
+fun ServerRequest.locale(): Locale = exchange().localeContext.locale ?: Locale.ENGLISH
 
 fun <T : Any> Validator.validateAndThrow(
     target: T,

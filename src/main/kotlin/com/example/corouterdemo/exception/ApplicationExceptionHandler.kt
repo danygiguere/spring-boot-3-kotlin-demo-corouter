@@ -1,5 +1,6 @@
 package com.example.corouterdemo.exception
 
+import com.example.corouterdemo.filter.CorrelationIdFilter
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.validation.ConstraintViolationException
@@ -18,7 +19,7 @@ import org.springframework.web.server.WebExceptionHandler
 import reactor.core.publisher.Mono
 import java.net.URI
 import java.util.Locale
-import java.util.UUID
+import java.util.concurrent.CancellationException
 
 /**
  * Maps every uncaught exception to an RFC 9457 problem-detail response.
@@ -38,8 +39,6 @@ class ApplicationExceptionHandler(
     private val messageSource: MessageSource,
 ) : WebExceptionHandler {
     private val logger = KotlinLogging.logger {}
-
-    private fun correlationId() = UUID.randomUUID().toString()
 
     private fun logAppException(
         ex: AppException,
@@ -74,7 +73,7 @@ class ApplicationExceptionHandler(
         exchange: ServerWebExchange,
         ex: Throwable,
     ): Mono<Void> {
-        val correlationId = correlationId()
+        val correlationId = CorrelationIdFilter.of(exchange)
         val locale = exchange.localeContext.locale ?: Locale.ENGLISH
 
         val problem =
@@ -86,8 +85,9 @@ class ApplicationExceptionHandler(
 
                 // AppException.ValidationErrors is the manual counterpart to the
                 // framework-driven validation below (ConstraintViolationException /
-                // WebExchangeBindException). Use it when business logic detects
-                // field errors that Bean Validation annotations cannot express
+                // WebExchangeBindException).
+                // Use it when business logic detects field errors that Bean Validation
+                // annotations cannot express
                 // (e.g. cross-field rules, DB uniqueness checks on update).
                 is AppException.ValidationErrors -> {
                     logAppException(ex, correlationId)
@@ -107,7 +107,7 @@ class ApplicationExceptionHandler(
                 // Input validation — field errors are preserved and returned
                 // ============================================================
 
-                // ConstraintViolationException — triggered by @Validated on service/handler method parameters
+                // ConstraintViolationException — thrown by Validator.validateAndThrow in coRouter handlers.
                 is ConstraintViolationException -> {
                     val summary = messageSource.getMessage("error.validation_failed", null, "Validation failed", locale)!!
                     val fieldErrors =
@@ -123,7 +123,10 @@ class ApplicationExceptionHandler(
                     problemOf(HttpStatus.UNPROCESSABLE_ENTITY, summary, fieldErrors, "error.validation_failed")
                 }
 
-                // WebExchangeBindException — triggered by @Valid on @RequestBody in WebFlux
+                // WebExchangeBindException — thrown only by annotated controllers
+                // (@RestController + @Valid @RequestBody). Never fires for coRouter routes,
+                // which validate via validateAndThrow above. Kept so this handler is complete
+                // when reused in a project that has annotated controllers.
                 is WebExchangeBindException -> {
                     val summary = messageSource.getMessage("error.validation_failed", null, "Validation failed", locale)!!
                     val fieldErrors =
@@ -163,6 +166,9 @@ class ApplicationExceptionHandler(
                         logger.error(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.reason}" }
                         problemOf(HttpStatus.INTERNAL_SERVER_ERROR, resolveStatusMessage(HttpStatus.INTERNAL_SERVER_ERROR, locale))
                     }
+
+                // Client disconnected mid-request — not a server error, and nothing to write to.
+                is CancellationException -> return Mono.empty()
 
                 else -> {
                     logger.error(ex) { "[$correlationId] ${ex.javaClass.simpleName}: ${ex.message}" }

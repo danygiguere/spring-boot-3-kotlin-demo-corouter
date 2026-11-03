@@ -2,6 +2,8 @@ package com.example.corouterdemo.controller
 
 import com.example.corouterdemo.dto.UserRequest
 import com.example.corouterdemo.shared.config.SharedTestContainers
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -77,5 +79,23 @@ class UserControllerTest : SharedTestContainers() {
             .isEqualTo("/users/999999")
             .jsonPath("$.correlationId")
             .isNotEmpty
+    }
+
+    @Test
+    fun `error correlationId matches the response header`() {
+        val result =
+            webTestClient
+                .get()
+                .uri("/users/999999")
+                .exchange()
+                .expectStatus()
+                .isNotFound
+                .expectBody(Map::class.java)
+                .returnResult()
+        val header = result.responseHeaders.getFirst("X-Correlation-Id")
+        org.junit.jupiter.api.Assertions
+            .assertNotNull(header)
+        org.junit.jupiter.api.Assertions
+            .assertEquals(header, result.responseBody!!["correlationId"])
     }
 }
