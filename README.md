@@ -2,8 +2,8 @@
 
 A demo project showcasing Spring Boot 3 development in Kotlin with the **`coRouter` DSL** (separate Router and Handler
 classes) and **coroutines** end to end (`suspend` functions and `Flow`), on a fully reactive stack. It is the Kotlin
-twin of [spring-boot-3-java-demo-router](../../Java/spring-boot-3-java-demo-router) (same API, schema, seed and tests),
-built on the domain of [spring-boot-java-audit-skills-demo](../../Java/spring-boot-java-audit-skills-demo), and written
+twin of [spring-boot-3-java-webflux-demo-router](../spring-boot-3-java-webflux-demo-router) (same API, schema, seed and tests),
+built on the domain of [spring-boot-java-audit-skills-demo](../spring-boot-java-audit-skills-demo), and written
 to respect every invariant of [audit-skills](../../audit-skills) (see [AGENTS.md](AGENTS.md)).
 
 ## Features

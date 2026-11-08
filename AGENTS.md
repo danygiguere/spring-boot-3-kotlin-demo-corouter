@@ -15,7 +15,7 @@ Guidance for AI agents working in this repository. Read this before making chang
 ## Project
 
 Spring Boot 3 + Kotlin demo built on a **fully reactive** stack, using the **`coRouter` DSL** with separate Router and
-Handler classes, and coroutines end to end. Twin of `../../Java/spring-boot-3-java-demo-router` (same API, schema, seed).
+Handler classes, and coroutines end to end. Twin of `../spring-boot-3-java-webflux-demo-router` (same API, schema, seed).
 
 **Stack:** Kotlin 2.1 · JVM 21 · Spring Boot 3.5 · WebFlux + coroutines · Spring Security (OAuth2 resource server, JWT) · R2DBC · PostgreSQL ·
 Flyway · Springdoc/OpenAPI · Testcontainers
