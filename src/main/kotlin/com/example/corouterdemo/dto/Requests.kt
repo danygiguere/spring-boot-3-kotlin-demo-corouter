@@ -1,5 +1,7 @@
 package com.example.corouterdemo.dto
 
+import com.example.corouterdemo.validation.NoDuplicates
+import com.example.corouterdemo.validation.SafeText
 import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.Email
@@ -12,9 +14,11 @@ import org.hibernate.validator.constraints.URL
 data class CreatePostRequest(
     @field:NotBlank(message = "{post.content.required}")
     @field:Size(max = 5000, message = "{post.content.size}")
+    @field:SafeText(message = "{post.content.unsafe}")
     @Schema(example = "Hello from the coRouter demo!")
     val content: String?,
     @field:Size(max = 10, message = "{post.imageUrls.size}")
+    @field:NoDuplicates(message = "{post.imageUrls.duplicate}")
     @ArraySchema(schema = Schema(example = "https://images.example.com/hello.jpg"))
     val imageUrls: List<
         @NotBlank(message = "{post.imageUrl.required}")
@@ -28,6 +32,7 @@ data class CreatePostRequest(
 data class UpdatePostRequest(
     @field:NotBlank(message = "{post.content.required}")
     @field:Size(max = 5000, message = "{post.content.size}")
+    @field:SafeText(message = "{post.content.unsafe}")
     @Schema(example = "Edited content")
     val content: String?,
 )
@@ -36,6 +41,7 @@ data class UpdatePostRequest(
 @Schema(description = "Profile of the authenticated user")
 data class ProfileRequest(
     @field:Size(max = 500, message = "{profile.bio.size}")
+    @field:SafeText(message = "{profile.bio.unsafe}")
     @Schema(example = "Backend developer")
     val bio: String? = null,
     @field:URL(protocol = "https", message = "{profile.avatarUrl.url}")

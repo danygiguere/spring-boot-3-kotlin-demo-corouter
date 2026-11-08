@@ -19,6 +19,8 @@ to respect every invariant of [audit-skills](../../audit-skills) (see [AGENTS.md
   localized `detail` and a `correlationId` matching the `X-Correlation-Id` header; only `AppException` messages reach
   the client
 - **Bean Validation (i18n)** — localized field errors; unknown JSON fields rejected; bounded pagination and body size
+- **Custom validators** — `@SafeText` (field-level: rejects HTML tags and control characters) and `@NoDuplicates`
+  (collection-level) in `validation/`, each a `ConstraintValidator` with localized messages; unit-tested without Spring
 - **Swagger / OpenAPI** — Springdoc, with a bearer-token **Authorize** button (dev profile only)
 - **Spotless** — ktlint; a formatting violation fails the build
 - **Testcontainers** — integration tests against a real PostgreSQL
