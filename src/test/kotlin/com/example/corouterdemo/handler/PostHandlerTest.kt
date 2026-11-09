@@ -88,7 +88,7 @@ class PostHandlerTest : IntegrationTest() {
     }
 
     @Test
-    fun `create - missing or malformed idempotency key returns 400`() {
+    fun `create - missing idempotency key returns 400`() {
         asUser(AUTHOR)
             .post()
             .uri("/posts")
@@ -99,7 +99,10 @@ class PostHandlerTest : IntegrationTest() {
             .expectBody()
             .jsonPath("$.type")
             .isEqualTo("/errors/header-required")
+    }
 
+    @Test
+    fun `create - malformed idempotency key returns 400`() {
         asUser(AUTHOR)
             .post()
             .uri("/posts")
@@ -111,6 +114,24 @@ class PostHandlerTest : IntegrationTest() {
             .expectBody()
             .jsonPath("$.type")
             .isEqualTo("/errors/idempotency-key-invalid")
+    }
+
+    @Test
+    fun `create - validation messages follow Accept-Language`() {
+        asUser(AUTHOR)
+            .post()
+            .uri("/posts")
+            .header("Idempotency-Key", newKey())
+            .header("Accept-Language", "fr")
+            .bodyValue(mapOf("content" to "x".repeat(5001)))
+            .exchange()
+            .expectStatus()
+            .isEqualTo(422)
+            .expectBody()
+            .jsonPath("$.detail")
+            .isEqualTo("Échec de la validation — veuillez corriger les erreurs ci-dessus.")
+            .jsonPath("$.errors.content[0]")
+            .isEqualTo("Le contenu ne doit pas dépasser 5000 caractères")
     }
 
     @Test
