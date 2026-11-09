@@ -107,7 +107,7 @@ Defaults are production-safe: an unset variable never enables a local-only featu
 
 | Variable | Default | `.env.example` | Role |
 |---|---|---|---|
-| `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` | **required** | `demo_spring_kotlin_corouter` / `postgres` / *(empty: set yours)* | Database |
+| `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` | **required** | `spring_boot_3_kotlin_demo_corouter` / `postgres` / *(empty: set yours)* | Database |
 | `DB_HOST` / `DB_PORT` | `localhost` / `5432` | — / `5432` | Database address |
 | `SERVER_PORT` | `8080` | `8087` | HTTP port |
 | `JWT_SECRET` | **required** (≥ 32 bytes) | generate: `openssl rand -base64 48` | HS256 verification key |
@@ -120,7 +120,7 @@ Defaults are production-safe: an unset variable never enables a local-only featu
 
 ## Getting Started
 
-1. Ensure a local PostgreSQL instance is running and create the `demo_spring_kotlin_corouter` database
+1. Ensure a local PostgreSQL instance is running and create the `spring_boot_3_kotlin_demo_corouter` database
    > 💡 Need a quick local database? Use [Dev Services](https://github.com/danygiguere/dev_services) to spin up a dockerized PostgreSQL instance.
 2. Copy `.env.example` to `.env`, set `JWT_SECRET` and adjust it to your local PostgreSQL settings
 3. Run `./gradlew bootRun` (or the main class in your IDE) — Flyway applies the schema and the deterministic seed
