@@ -143,6 +143,22 @@ class PostHandlerTest : IntegrationTest() {
     }
 
     @Test
+    fun `create - duplicate image urls return 422`() {
+        val url = "https://images.example.com/x.jpg"
+        asUser(AUTHOR)
+            .post()
+            .uri("/posts")
+            .header("Idempotency-Key", newKey())
+            .bodyValue(mapOf("content" to "ok", "imageUrls" to listOf(url, url)))
+            .exchange()
+            .expectStatus()
+            .isEqualTo(422)
+            .expectBody()
+            .jsonPath("$.errors.imageUrls[0]")
+            .isEqualTo("Image URLs must be unique")
+    }
+
+    @Test
     fun `create - author field in body is rejected`() {
         asUser(AUTHOR)
             .post()
