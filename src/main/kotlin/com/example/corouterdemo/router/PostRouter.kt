@@ -22,7 +22,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.reactive.function.server.coRouter
 
-/** Posts of the caller's enterprise; writes are restricted to the author. */
+/** Posts are visible to every user; writes are restricted to the author. */
 @Configuration
 class PostRouter(
     private val handler: PostHandler,
@@ -37,7 +37,7 @@ class PostRouter(
             operation =
                 Operation(
                     operationId = "getFeed",
-                    summary = "The enterprise feed, newest first (hasManyThrough)",
+                    summary = "The feed, newest first, with image and like counts",
                     parameters = [
                         Parameter(`in` = ParameterIn.QUERY, name = "beforeId", description = "Cursor: last id of the previous page"),
                         Parameter(`in` = ParameterIn.QUERY, name = "limit", description = "1 to 100"),

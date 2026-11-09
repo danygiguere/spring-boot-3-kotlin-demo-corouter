@@ -15,14 +15,12 @@ class UserHandlerTest : IntegrationTest() {
             .expectBody()
             .jsonPath("$.id")
             .isEqualTo(1)
-            .jsonPath("$.enterpriseId")
-            .isEqualTo(1)
             .jsonPath("$.email")
             .isEqualTo(ALICE)
     }
 
     @Test
-    fun `list - is scoped to caller's enterprise and paginated`() {
+    fun `list - is keyset paginated`() {
         asUser(ALICE)
             .get()
             .uri("/users?afterId=1&limit=3")
@@ -36,21 +34,9 @@ class UserHandlerTest : IntegrationTest() {
             .isEqualTo(2)
             .jsonPath("$[2].id")
             .isEqualTo(4)
-            // Colleagues are listed without their email.
+            // Other users are listed without their email.
             .jsonPath("$[0].email")
             .doesNotExist()
-
-        asUser(EVE)
-            .get()
-            .uri("/users?limit=100")
-            .exchange()
-            .expectStatus()
-            .isOk
-            .expectBody()
-            .jsonPath("$.length()")
-            .isEqualTo(10)
-            .jsonPath("$[0].id")
-            .isEqualTo(11)
     }
 
     @Test
@@ -69,10 +55,10 @@ class UserHandlerTest : IntegrationTest() {
     }
 
     @Test
-    fun `find by id - user of another enterprise is 404 with localized detail`() {
+    fun `find by id - unknown user is 404 with localized detail`() {
         asUser(ALICE)
             .get()
-            .uri("/users/11")
+            .uri("/users/999999")
             .header("Accept-Language", "fr")
             .exchange()
             .expectStatus()
@@ -81,9 +67,9 @@ class UserHandlerTest : IntegrationTest() {
             .jsonPath("$.type")
             .isEqualTo("/errors/user-not-found")
             .jsonPath("$.detail")
-            .isEqualTo("Utilisateur 11 introuvable")
+            .isEqualTo("Utilisateur 999999 introuvable")
             .jsonPath("$.instance")
-            .isEqualTo("/users/11")
+            .isEqualTo("/users/999999")
     }
 
     @Test
@@ -100,7 +86,7 @@ class UserHandlerTest : IntegrationTest() {
     }
 
     @Test
-    fun `profile - is readable by colleagues`() {
+    fun `profile - is readable by other users`() {
         asUser(BOB)
             .get()
             .uri("/users/1/profile")
@@ -116,9 +102,9 @@ class UserHandlerTest : IntegrationTest() {
 
     @Test
     fun `replace my profile - upserts the caller's profile only`() {
-        val colleague = asUser(COLLEAGUE)
+        val user = asUser(OTHER_USER)
         repeat(2) {
-            colleague
+            user
                 .put()
                 .uri("/users/me/profile")
                 .bodyValue(mapOf("bio" to "Updated bio", "avatarUrl" to "https://images.example.com/u4.png"))
@@ -135,7 +121,7 @@ class UserHandlerTest : IntegrationTest() {
 
     @Test
     fun `replace my profile - rejects non-https avatar with localized message`() {
-        asUser(COLLEAGUE)
+        asUser(OTHER_USER)
             .put()
             .uri("/users/me/profile")
             .header("Accept-Language", "fr")
@@ -152,7 +138,7 @@ class UserHandlerTest : IntegrationTest() {
 
     @Test
     fun `replace my profile - rejects unknown fields`() {
-        asUser(COLLEAGUE)
+        asUser(OTHER_USER)
             .put()
             .uri("/users/me/profile")
             .bodyValue(mapOf("bio" to "x", "userId" to 1))
@@ -177,12 +163,44 @@ class UserHandlerTest : IntegrationTest() {
     }
 
     @Test
-    fun `posts - of a user in another enterprise is 404`() {
+    fun `posts - of an unknown user is 404`() {
         asUser(ALICE)
             .get()
-            .uri("/users/11/posts")
+            .uri("/users/999999/posts")
             .exchange()
             .expectStatus()
             .isNotFound
+            .expectBody()
+            .jsonPath("$.type")
+            .isEqualTo("/errors/user-not-found")
+    }
+
+    @Test
+    fun `images - are the images of the user's posts, newest first`() {
+        // Alice's posts 1 to 3 have 1, 2 and 3 images: ids 1 to 6.
+        asUser(BOB)
+            .get()
+            .uri("/users/1/images?beforeId=6&limit=3")
+            .exchange()
+            .expectStatus()
+            .isOk
+            .expectBody()
+            .jsonPath("$[*].id")
+            .isEqualTo(listOf(5, 4, 3))
+            .jsonPath("$[*].postId")
+            .isEqualTo(listOf(3, 3, 2))
+    }
+
+    @Test
+    fun `images - of an unknown user is 404`() {
+        asUser(ALICE)
+            .get()
+            .uri("/users/999999/images")
+            .exchange()
+            .expectStatus()
+            .isNotFound
+            .expectBody()
+            .jsonPath("$.type")
+            .isEqualTo("/errors/user-not-found")
     }
 }

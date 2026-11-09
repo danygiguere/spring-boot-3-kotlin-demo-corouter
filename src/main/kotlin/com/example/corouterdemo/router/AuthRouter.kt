@@ -32,7 +32,7 @@ class AuthRouter(
                 Operation(
                     operationId = "devToken",
                     summary = "Get a token for a seeded user, without password (DEV_TOKEN_ENABLED only)",
-                    description = "Seeded users: alice@example.com, bob@example.com (enterprise 1), eve@example.com (enterprise 2).",
+                    description = "Seeded users: alice@example.com, bob@example.com, user3@example.com to user50@example.com.",
                     requestBody = RequestBody(content = [Content(schema = Schema(implementation = DevTokenRequest::class))]),
                     responses = [
                         ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = TokenResponse::class))]),

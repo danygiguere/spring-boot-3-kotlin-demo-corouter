@@ -20,8 +20,8 @@ Handler classes, and coroutines end to end. Twin of `../spring-boot-3-java-webfl
 **Stack:** Kotlin 2.1 · JVM 21 · Spring Boot 3.5 · WebFlux + coroutines · Spring Security (OAuth2 resource server, JWT) · R2DBC · PostgreSQL ·
 Flyway · Springdoc/OpenAPI · Testcontainers
 
-**Data model:** `Enterprise` 1—N `User` 1—1 `Profile`; `User` 1—N `Post` 1—N `Image`; `User` N—N `Post` via
-`post_likes`. The enterprise is the tenant.
+**Data model:** `User` 1—1 `Profile`; `User` 1—N `Post` 1—N `Image`; `User` N—N `Post` via `post_likes`. Single
+tenant: every resource is readable by every authenticated user.
 
 ## Commands
 
@@ -59,27 +59,27 @@ Router (coRouter DSL + OpenAPI)  →  Handler (HTTP I/O, validation)  →  Servi
   principal (`currentUser.get()`), params (`request.pathId()`, `limit()`, `beforeId()`, `afterId()`) and the body
   (`request.awaitValidBody<T>(validator)`), calls the service, responds with `bodyValueAndAwait` (single/list) or
   `bodyAndAwait` (`Flow`). No business logic.
-- **Service** (`service/`) — `@Service`. Business logic, tenant scoping and permission checks. `suspend` functions
-  returning DTOs, `List` or `Flow`; throws `AppException.*`. Run checks before returning a `Flow` (a 404 must be raised
+- **Service** (`service/`) — `@Service`. Business logic and permission checks. `suspend` functions returning DTOs,
+  `List` or `Flow`; throws `AppException.*`. Run checks before returning a `Flow` (a 404 must be raised
   before the response starts). Multi-table writes go through `transactionalOperator.executeAndAwait { }`.
 - **Repository** (`repository/`) — `CoroutineCrudRepository<Entity, Long>` + `@Query`: `suspend` for single rows (null
-  when absent), `Flow` for lists. Tenant-facing queries take the caller's `enterpriseId`; writes take the owner's
-  `userId` in the WHERE clause and return the affected row count.
+  when absent), `Flow` for lists. Writes take the owner's `userId` in the WHERE clause and return the affected row
+  count.
 - **Entity** (`domain/entity/`) — `data class` with `@Table` and `@Id val id: Long? = null`. Never serialized.
 - **DTO** (`dto/`) — request classes (nullable fields + `@field:` constraints, explicit writable fields; element
   constraints like `List<@URL String>` rely on `-Xemit-jvm-type-annotations`) and response classes (explicit exposed
   fields). No response envelope; lists are JSON arrays with keyset pagination.
 
-Coroutine rules: never `runBlocking` in main code; independent reads use `coroutineScope { async { } }`; related data
-for a list is loaded in bulk (`= ANY(:ids)`) and joined through maps (`PostSummaryLoader`). Inside a transaction, stay
-sequential (one connection).
+Coroutine rules: never `runBlocking` in main code; independent reads use `coroutineScope { async { } }`; a list page
+and its related data (author, counts) come from one query into a flat row (`PostSummaryRow`). Inside a transaction,
+stay sequential (one connection).
 
 ## Security model
 
 - Every route is authenticated except `SecurityConfig.PUBLIC_PATHS`. Deny by default.
-- The caller is `AuthenticatedUser` (`sub` → `userId`, `enterpriseId` claim) from a verified JWT. Never take a user or
-  enterprise id from the request for authorization or ownership.
-- Out-of-tenant resources are **404**; in-tenant resources the caller may not change are **403**.
+- The caller is `AuthenticatedUser` (`sub` → `userId`) from a verified JWT. Never take a user id from the request for
+  authorization or ownership.
+- Missing resources are **404**; resources the caller may not change are **403**.
 - No Spring profiles: one `application.yml`, env vars with production-safe defaults (`.env` locally). Local-only
   features are opt-in: `FLYWAY_LOCATIONS` (seed), `SWAGGER_ENABLED`, `DEV_TOKEN_ENABLED` (`@DevTokenEnabled`; startup
   fails unless `SERVER_ADDRESS` is loopback). `JWT_SECRET` has no default.
@@ -90,10 +90,10 @@ sequential (one connection).
   `@SpringBootTest` properties (seed + dev tokens + Swagger), `RANDOM_PORT` with `WebTestClient`.
 - `asUser(email)` returns a client authenticated as a seeded user; repository tests use `runTest`.
 - Test names use backtick descriptions: `` `create - same key with different body returns 409` ``.
-- Tests that write create their own posts as users 3, 4 and 12; never change seeded posts/likes or users 1, 2, 11, so
+- Tests that write create their own posts as users 3 and 4; never change seeded posts/likes or users 1 and 2, so
   seed-based assertions hold in any order.
 - Assert status and the problem JSON (`$.type`, `$.status`, `$.errors.<field>`, `$.correlationId`); cover the success
-  path, validation errors, and the cross-tenant / not-owner paths.
+  path, validation errors, and the not-found / not-owner paths.
 
 # Engineering audit digest
 

@@ -28,7 +28,7 @@ class PostHandler(
     suspend fun feed(request: ServerRequest): ServerResponse {
         val beforeId = request.beforeId()
         val limit = request.limit()
-        return ServerResponse.ok().bodyValueAndAwait(postService.feed(currentUser.get(), beforeId, limit))
+        return ServerResponse.ok().bodyAndAwait(postService.feed(beforeId, limit))
     }
 
     suspend fun create(request: ServerRequest): ServerResponse {
@@ -44,7 +44,7 @@ class PostHandler(
 
     suspend fun findById(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
-        return ServerResponse.ok().bodyValueAndAwait(postService.findById(currentUser.get(), id))
+        return ServerResponse.ok().bodyValueAndAwait(postService.findById(id))
     }
 
     suspend fun update(request: ServerRequest): ServerResponse {
@@ -62,14 +62,14 @@ class PostHandler(
 
     suspend fun findImages(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
-        return ServerResponse.ok().bodyAndAwait(postService.findImages(currentUser.get(), id))
+        return ServerResponse.ok().bodyAndAwait(postService.findImages(id))
     }
 
     suspend fun findLikers(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
         val afterId = request.afterId()
         val limit = request.limit()
-        return ServerResponse.ok().bodyAndAwait(postService.findLikers(currentUser.get(), id, afterId, limit))
+        return ServerResponse.ok().bodyAndAwait(postService.findLikers(id, afterId, limit))
     }
 
     suspend fun like(request: ServerRequest): ServerResponse {

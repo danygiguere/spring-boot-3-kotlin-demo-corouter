@@ -14,8 +14,8 @@ import org.testcontainers.utility.DockerImageName
  * Base class for integration tests: one PostgreSQL Testcontainer for the whole suite, and the local settings of
  * `.env.example`, so the deterministic seed (`db/seed/R__dev_seed.sql`), `/auth/dev-token` and Swagger are available.
  *
- * Tests that write create their own posts (as users 3, 4 and 12) and never change seeded posts, likes or the users
- * 1, 2 and 11, so seed-based assertions hold in any order.
+ * Tests that write create their own posts (as users 3 and 4) and never change seeded posts, likes or the users 1
+ * and 2, so seed-based assertions hold in any order.
  */
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -50,12 +50,10 @@ abstract class IntegrationTest {
     }
 
     companion object {
-        const val ALICE = "alice@example.com" // user 1, enterprise 1
-        const val BOB = "bob@example.com" // user 2, enterprise 1
-        const val EVE = "eve@example.com" // user 11, enterprise 2
-        const val AUTHOR = "user3@example.com" // user 3, enterprise 1
-        const val COLLEAGUE = "user4@example.com" // user 4, enterprise 1
-        const val OUTSIDER = "user12@example.com" // user 12, enterprise 2
+        const val ALICE = "alice@example.com" // user 1
+        const val BOB = "bob@example.com" // user 2
+        const val AUTHOR = "user3@example.com" // user 3
+        const val OTHER_USER = "user4@example.com" // user 4
 
         private val postgres: PostgreSQLContainer<*> =
             PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine")).withReuse(true).apply { start() }

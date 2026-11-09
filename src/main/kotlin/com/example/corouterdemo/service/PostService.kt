@@ -36,8 +36,8 @@ data class CreatedPost(
 )
 
 /**
- * Posts are visible to the author's enterprise and writable by the author only. Both checks happen here, at the
- * point of action, from the verified token — never from ids in the request body.
+ * Posts are visible to every user and writable by the author only. The author check happens here, at the point of
+ * action, from the verified token — never from ids in the request body.
  */
 @Service
 class PostService(
@@ -47,46 +47,40 @@ class PostService(
     private val userRepository: UserRepository,
     private val idempotencyKeyRepository: IdempotencyKeyRepository,
     private val userService: UserService,
-    private val summaryLoader: PostSummaryLoader,
     private val transactionalOperator: TransactionalOperator,
     private val clock: Clock,
 ) {
     // --- Reads --------------------------------------------------------------------------------------------------
 
-    suspend fun feed(
-        me: AuthenticatedUser,
+    fun feed(
         beforeId: Long,
         limit: Int,
-    ): List<PostSummary> = summaryLoader.load(postRepository.findFeed(me.enterpriseId, beforeId, limit), me.enterpriseId)
+    ): Flow<PostSummary> = postRepository.findFeed(beforeId, limit).map(::PostSummary)
 
+    /** The existence check runs before the [Flow] is returned, so a 404 is raised before any byte is written. */
     suspend fun findByAuthor(
-        me: AuthenticatedUser,
         userId: Long,
         beforeId: Long,
         limit: Int,
-    ): List<PostSummary> {
-        userService.requireColleague(me, userId)
-        return summaryLoader.load(postRepository.findByAuthor(userId, me.enterpriseId, beforeId, limit), me.enterpriseId)
+    ): Flow<PostSummary> {
+        userService.requireUser(userId)
+        return postRepository.findByAuthor(userId, beforeId, limit).map(::PostSummary)
     }
 
     suspend fun findLikedBy(
-        me: AuthenticatedUser,
         userId: Long,
         beforeId: Long,
         limit: Int,
-    ): List<PostSummary> {
-        userService.requireColleague(me, userId)
-        return summaryLoader.load(postRepository.findLikedBy(userId, me.enterpriseId, beforeId, limit), me.enterpriseId)
+    ): Flow<PostSummary> {
+        userService.requireUser(userId)
+        return postRepository.findLikedBy(userId, beforeId, limit).map(::PostSummary)
     }
 
     /** The post, its author, images and like count: three independent queries run concurrently. */
-    suspend fun findById(
-        me: AuthenticatedUser,
-        id: Long,
-    ): PostDetails {
-        val post = requireVisible(me, id)
+    suspend fun findById(id: Long): PostDetails {
+        val post = requirePost(id)
         return coroutineScope {
-            val author = async { userService.requireColleague(me, post.userId) }
+            val author = async { userService.requireUser(post.userId) }
             val images = async { imageRepository.findAllByPostIdOrderByPositionAsc(id).toList() }
             val likeCount = async { postLikeRepository.countByPostId(id) }
             PostDetails(post, author.await(), images.await(), likeCount.await())
@@ -94,22 +88,18 @@ class PostService(
     }
 
     /** The visibility check runs before the [Flow] is returned, so a 404 is raised before any byte is written. */
-    suspend fun findImages(
-        me: AuthenticatedUser,
-        id: Long,
-    ): Flow<ImageResponse> {
-        requireVisible(me, id)
+    suspend fun findImages(id: Long): Flow<ImageResponse> {
+        requirePost(id)
         return imageRepository.findAllByPostIdOrderByPositionAsc(id).map(::ImageResponse)
     }
 
     suspend fun findLikers(
-        me: AuthenticatedUser,
         id: Long,
         afterId: Long,
         limit: Int,
     ): Flow<UserResponse> {
-        requireVisible(me, id)
-        return userRepository.findLikersInEnterprise(id, me.enterpriseId, afterId, limit).map(::UserResponse)
+        requirePost(id)
+        return userRepository.findLikers(id, afterId, limit).map(::UserResponse)
     }
 
     // --- Writes -------------------------------------------------------------------------------------------------
@@ -144,7 +134,7 @@ class PostService(
         // The replayed post is read after the transaction ends: its concurrent queries need their own connections.
         return when (claim) {
             is Claim.Inserted -> CreatedPost(claim.post, replayed = false)
-            is Claim.AlreadyCreated -> CreatedPost(findById(me, claim.postId), replayed = true)
+            is Claim.AlreadyCreated -> CreatedPost(findById(claim.postId), replayed = true)
         }
     }
 
@@ -156,7 +146,7 @@ class PostService(
     ): PostDetails {
         requireAuthor(me, id)
         if (postRepository.updateContent(id, me.userId, request.content!!) != 1L) throw postNotFound(id)
-        return findById(me, id)
+        return findById(id)
     }
 
     /** Only the author may delete. Images and likes go with the post (ON DELETE CASCADE). */
@@ -173,11 +163,11 @@ class PostService(
         me: AuthenticatedUser,
         id: Long,
     ) {
-        requireVisible(me, id)
+        requirePost(id)
         try {
             postLikeRepository.likeIfAbsent(id, me.userId)
         } catch (e: DataIntegrityViolationException) {
-            // The post was deleted between the visibility check and the insert (foreign key violation).
+            // The post was deleted between the existence check and the insert (foreign key violation).
             throw AppException.NotFound("error.post.not.found", arrayOf(id), e)
         }
     }
@@ -187,7 +177,7 @@ class PostService(
         me: AuthenticatedUser,
         id: Long,
     ) {
-        requireVisible(me, id)
+        requirePost(id)
         postLikeRepository.unlike(id, me.userId)
     }
 
@@ -198,7 +188,7 @@ class PostService(
         request: CreatePostRequest,
         now: java.time.Instant,
     ): PostDetails {
-        val author = userService.requireColleague(me, me.userId)
+        val author = userService.requireUser(me.userId)
         val post = postRepository.save(Post(userId = author.id!!, content = request.content!!, createdAt = now))
         val images =
             imageRepository
@@ -207,17 +197,14 @@ class PostService(
         return PostDetails(post, author, images, 0)
     }
 
-    private suspend fun requireVisible(
-        me: AuthenticatedUser,
-        id: Long,
-    ): Post = postRepository.findVisible(id, me.enterpriseId) ?: throw postNotFound(id)
+    private suspend fun requirePost(id: Long): Post = postRepository.findById(id) ?: throw postNotFound(id)
 
-    /** Visible but not authored by the caller is a 403: the post's existence is no secret within the enterprise. */
+    /** Not authored by the caller is a 403: every post is visible, so its existence is no secret. */
     private suspend fun requireAuthor(
         me: AuthenticatedUser,
         id: Long,
     ): Post =
-        requireVisible(me, id).also {
+        requirePost(id).also {
             if (it.userId != me.userId) throw AppException.Forbidden("error.post.not.author", arrayOf(id))
         }
 

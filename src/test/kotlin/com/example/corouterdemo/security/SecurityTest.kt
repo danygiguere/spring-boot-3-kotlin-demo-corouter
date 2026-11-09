@@ -58,7 +58,6 @@ class SecurityTest : IntegrationTest() {
                 .issuer(properties.issuer)
                 .audience(listOf(properties.audience))
                 .subject("1")
-                .claim(AuthenticatedUser.ENTERPRISE_ID_CLAIM, 1)
                 .build()
         expectStatus(sign(properties.secret!!, claims), 401)
     }
@@ -73,7 +72,7 @@ class SecurityTest : IntegrationTest() {
         val exp = Instant.now().plusSeconds(600).epochSecond
         val payload =
             base64.encodeToString(
-                """{"sub":"1","enterpriseId":1,"iss":"${properties.issuer}","aud":"${properties.audience}","exp":$exp}""".toByteArray(),
+                """{"sub":"1","iss":"${properties.issuer}","aud":"${properties.audience}","exp":$exp}""".toByteArray(),
             )
         expectStatus("$header.$payload.", 401)
     }
@@ -128,7 +127,6 @@ class SecurityTest : IntegrationTest() {
             .subject("1")
             .issuedAt(now)
             .expiresAt(now.plusSeconds(600))
-            .claim(AuthenticatedUser.ENTERPRISE_ID_CLAIM, 1)
     }
 
     private fun signed(customizer: JwtClaimsSet.Builder.() -> Unit): String =

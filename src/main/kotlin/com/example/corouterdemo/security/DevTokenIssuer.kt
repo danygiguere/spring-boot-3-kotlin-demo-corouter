@@ -43,7 +43,6 @@ class DevTokenIssuer(
                 .subject(user.id.toString())
                 .issuedAt(now)
                 .expiresAt(now.plus(properties.ttl))
-                .claim(AuthenticatedUser.ENTERPRISE_ID_CLAIM, user.enterpriseId)
                 .build()
         val header = JwsHeader.with(MacAlgorithm.HS256).build()
         val token = encoder.encode(JwtEncoderParameters.from(header, claims)).tokenValue

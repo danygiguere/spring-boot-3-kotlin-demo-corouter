@@ -7,10 +7,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
-/**
- * Each relationship of the model, on the seed: user u belongs to enterprise (u - 1) / 10 + 1; post p belongs to user
- * (p - 1) / 4 + 1, has (p % 4) images and (p % 7) likes.
- */
+/** Each relationship of the model, on the seed: post p belongs to user (p - 1) / 4 + 1, has (p % 4) images and (p % 7) likes. */
 class RelationshipsTest : IntegrationTest() {
     @Autowired lateinit var userRepository: UserRepository
 
@@ -23,13 +20,11 @@ class RelationshipsTest : IntegrationTest() {
     @Autowired lateinit var postLikeRepository: PostLikeRepository
 
     @Test
-    fun `belongsTo - post 5 is Bob's, in enterprise 1`() =
+    fun `belongsTo - post 5 is Bob's`() =
         runTest {
             val post = postRepository.findById(5)!!
-            val author = userRepository.findById(post.userId)!!
 
-            assertThat(author.name).isEqualTo("Bob")
-            assertThat(author.enterpriseId).isEqualTo(1)
+            assertThat(userRepository.findById(post.userId)!!.name).isEqualTo("Bob")
         }
 
     @Test
@@ -41,40 +36,35 @@ class RelationshipsTest : IntegrationTest() {
     @Test
     fun `hasMany - user posts and post images in order`() =
         runTest {
-            val posts = postRepository.findByAuthor(1, 1, Long.MAX_VALUE, 100).toList()
+            val posts = postRepository.findByAuthor(1, Long.MAX_VALUE, 100).toList()
             val images = imageRepository.findAllByPostIdOrderByPositionAsc(3).toList()
 
             assertThat(posts.map { it.id }).containsExactly(4, 3, 2, 1)
+            assertThat(posts.map { it.imageCount }).containsExactly(0, 3, 2, 1)
+            assertThat(posts).allSatisfy { assertThat(it.authorName).isEqualTo("Alice") }
             assertThat(images.map { it.position }).containsExactly(1, 2, 3)
             assertThat(imageRepository.findAllByPostIdOrderByPositionAsc(4).toList()).isEmpty()
         }
 
     @Test
-    fun `hasManyThrough - enterprise 3 has 40 posts`() =
+    fun `hasManyThrough - user 1 has 6 images through posts 1 to 3`() =
         runTest {
-            val posts = postRepository.findFeed(3, Long.MAX_VALUE, 100).toList()
+            val images = imageRepository.findByUser(1, Long.MAX_VALUE, 100).toList()
 
-            assertThat(posts).hasSize(40)
-            assertThat(posts).allSatisfy { assertThat(it.userId).isBetween(21L, 30L) }
+            assertThat(images.map { it.id }).containsExactly(6, 5, 4, 3, 2, 1)
+            assertThat(images.map { it.postId }.distinct()).containsExactly(3, 2, 1)
+            assertThat(imageRepository.findByUser(1, 4, 2).toList().map { it.id }).containsExactly(3, 2)
         }
 
     @Test
     fun `manyToMany - both directions`() =
         runTest {
-            val likers = userRepository.findLikersInEnterprise(6, 1, 0, 100).toList()
+            val likers = userRepository.findLikers(6, 0, 100).toList()
 
             assertThat(likers).hasSize(6)
             assertThat(postLikeRepository.countByPostId(6)).isEqualTo(6)
             likers.forEach { liker ->
-                assertThat(postRepository.findLikedBy(liker.id!!, 1, Long.MAX_VALUE, 100).toList().map { it.id }).contains(6)
+                assertThat(postRepository.findLikedBy(liker.id!!, Long.MAX_VALUE, 100).toList().map { it.id }).contains(6)
             }
-        }
-
-    @Test
-    fun `tenant-scoped queries return nothing across enterprises`() =
-        runTest {
-            assertThat(userRepository.findInEnterprise(11, 1)).isNull()
-            assertThat(postRepository.findVisible(41, 1)).isNull()
-            assertThat(postRepository.findVisible(41, 2)).isNotNull
         }
 }

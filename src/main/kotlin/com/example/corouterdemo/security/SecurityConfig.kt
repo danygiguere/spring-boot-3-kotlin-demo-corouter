@@ -28,7 +28,7 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * Stateless bearer-token API. This filter chain only AUTHENTICATES; whether the caller may touch a given resource
- * (same enterprise, author) is checked in the service at the point of action.
+ * (author) is checked in the service at the point of action.
  */
 @Configuration
 @EnableWebFluxSecurity
@@ -103,18 +103,13 @@ class SecurityConfig {
 
         private val NUMERIC = Regex("[1-9][0-9]{0,18}")
 
-        /** `sub` is a positive user id and `enterpriseId` a number: a malformed claim is a 401, not a 500. */
+        /** `sub` is a positive user id: a malformed claim is a 401, not a 500. */
         fun claimShapeValidator(): OAuth2TokenValidator<Jwt> =
             OAuth2TokenValidator { jwt ->
-                val enterpriseId = jwt.claims[AuthenticatedUser.ENTERPRISE_ID_CLAIM]
-                val valid =
-                    jwt.subject?.let { NUMERIC.matches(it) } == true &&
-                        enterpriseId is Number &&
-                        enterpriseId.toLong() > 0
-                if (valid) {
+                if (jwt.subject?.let { NUMERIC.matches(it) } == true) {
                     OAuth2TokenValidatorResult.success()
                 } else {
-                    OAuth2TokenValidatorResult.failure(OAuth2Error("invalid_token", "Missing or malformed sub/enterpriseId claim", null))
+                    OAuth2TokenValidatorResult.failure(OAuth2Error("invalid_token", "Missing or malformed sub claim", null))
                 }
             }
 

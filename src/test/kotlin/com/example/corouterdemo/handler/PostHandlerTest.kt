@@ -82,9 +82,9 @@ class PostHandlerTest : IntegrationTest() {
     fun `create - same key from another user is independent`() {
         val key = newKey()
         val byAuthor = create(asUser(AUTHOR), key)
-        val byColleague = create(asUser(COLLEAGUE), key)
+        val byOtherUser = create(asUser(OTHER_USER), key)
 
-        assertThat(byColleague.id).isNotEqualTo(byAuthor.id)
+        assertThat(byOtherUser.id).isNotEqualTo(byAuthor.id)
     }
 
     @Test
@@ -205,25 +205,27 @@ class PostHandlerTest : IntegrationTest() {
     }
 
     @Test
-    fun `find by id - post of another enterprise is 404`() {
+    fun `find by id - is visible to every user`() {
         val post = create(asUser(AUTHOR), newKey())
 
-        asUser(OUTSIDER)
+        asUser(OTHER_USER)
             .get()
             .uri("/posts/{id}", post.id)
             .exchange()
             .expectStatus()
-            .isNotFound
+            .isOk
             .expectBody()
-            .jsonPath("$.type")
-            .isEqualTo("/errors/post-not-found")
+            .jsonPath("$.author.id")
+            .isEqualTo(3)
+            .jsonPath("$.images[*].postId")
+            .isEqualTo(listOf(post.id.toInt(), post.id.toInt()))
     }
 
     @Test
     fun `update - only by author`() {
         val post = create(asUser(AUTHOR), newKey())
 
-        asUser(COLLEAGUE)
+        asUser(OTHER_USER)
             .put()
             .uri("/posts/{id}", post.id)
             .bodyValue(mapOf("content" to "Hijacked"))
@@ -254,7 +256,7 @@ class PostHandlerTest : IntegrationTest() {
         val key = newKey()
         val post = create(author, key)
 
-        asUser(COLLEAGUE)
+        asUser(OTHER_USER)
             .delete()
             .uri("/posts/{id}", post.id)
             .exchange()
@@ -289,17 +291,17 @@ class PostHandlerTest : IntegrationTest() {
     @Test
     fun `like and unlike - are idempotent`() {
         val post = create(asUser(AUTHOR), newKey())
-        val colleague = asUser(COLLEAGUE)
+        val user = asUser(OTHER_USER)
 
         repeat(2) {
-            colleague
+            user
                 .put()
                 .uri("/posts/{id}/likes", post.id)
                 .exchange()
                 .expectStatus()
                 .isNoContent
         }
-        colleague
+        user
             .get()
             .uri("/posts/{id}/likes", post.id)
             .exchange()
@@ -310,14 +312,14 @@ class PostHandlerTest : IntegrationTest() {
             .isEqualTo(listOf(4))
 
         repeat(2) {
-            colleague
+            user
                 .delete()
                 .uri("/posts/{id}/likes", post.id)
                 .exchange()
                 .expectStatus()
                 .isNoContent
         }
-        colleague
+        user
             .get()
             .uri("/posts/{id}", post.id)
             .exchange()
@@ -329,15 +331,16 @@ class PostHandlerTest : IntegrationTest() {
     }
 
     @Test
-    fun `like - post of another enterprise is 404`() {
-        val post = create(asUser(AUTHOR), newKey())
-
-        asUser(OUTSIDER)
+    fun `like - missing post is 404`() {
+        asUser(OTHER_USER)
             .put()
-            .uri("/posts/{id}/likes", post.id)
+            .uri("/posts/999999/likes")
             .exchange()
             .expectStatus()
             .isNotFound
+            .expectBody()
+            .jsonPath("$.type")
+            .isEqualTo("/errors/post-not-found")
     }
 
     @Test
@@ -363,11 +366,11 @@ class PostHandlerTest : IntegrationTest() {
     }
 
     @Test
-    fun `feed - is scoped to caller's enterprise`() {
+    fun `feed - includes every user's posts`() {
         val page =
-            asUser(EVE)
+            asUser(ALICE)
                 .get()
-                .uri("/posts?limit=100")
+                .uri("/posts?beforeId=6&limit=3")
                 .exchange()
                 .expectStatus()
                 .isOk
@@ -375,8 +378,7 @@ class PostHandlerTest : IntegrationTest() {
                 .returnResult()
                 .responseBody!!
 
-        assertThat(page).isNotEmpty
-        assertThat(page).allSatisfy { assertThat(it.author.id).isBetween(11L, 20L) }
+        assertThat(page.map { it.id to it.author.name }).containsExactly(5L to "Bob", 4L to "Alice", 3L to "Alice")
     }
 
     @Test

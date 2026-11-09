@@ -1,5 +1,6 @@
 package com.example.corouterdemo.router
 
+import com.example.corouterdemo.dto.ImageResponse
 import com.example.corouterdemo.dto.MeResponse
 import com.example.corouterdemo.dto.PostSummary
 import com.example.corouterdemo.dto.ProfileRequest
@@ -21,7 +22,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.reactive.function.server.coRouter
 
-/** Users of the caller's enterprise only. */
 @Configuration
 class UserRouter(
     private val handler: UserHandler,
@@ -68,7 +68,7 @@ class UserRouter(
             operation =
                 Operation(
                     operationId = "getUsers",
-                    summary = "List users of the caller's enterprise, oldest first",
+                    summary = "List users, oldest first",
                     parameters = [
                         Parameter(`in` = ParameterIn.QUERY, name = "afterId", description = "Cursor: last id of the previous page"),
                         Parameter(`in` = ParameterIn.QUERY, name = "limit", description = "1 to 100"),
@@ -138,6 +138,27 @@ class UserRouter(
                 ),
         ),
         RouterOperation(
+            path = "/users/{id}/images",
+            method = [RequestMethod.GET],
+            beanClass = UserHandler::class,
+            beanMethod = "findImages",
+            operation =
+                Operation(
+                    operationId = "getUserImages",
+                    summary = "List images of a user's posts, newest first (hasManyThrough)",
+                    parameters = [
+                        Parameter(`in` = ParameterIn.QUERY, name = "beforeId", description = "Cursor: last id of the previous page"),
+                        Parameter(`in` = ParameterIn.QUERY, name = "limit", description = "1 to 100"),
+                    ],
+                    responses = [
+                        ApiResponse(
+                            responseCode = "200",
+                            content = [Content(array = ArraySchema(schema = Schema(implementation = ImageResponse::class)))],
+                        ),
+                    ],
+                ),
+        ),
+        RouterOperation(
             path = "/users/{id}",
             method = [RequestMethod.GET],
             beanClass = UserHandler::class,
@@ -145,7 +166,7 @@ class UserRouter(
             operation =
                 Operation(
                     operationId = "getUserById",
-                    summary = "Get a user of the caller's enterprise",
+                    summary = "Get a user (no email)",
                     responses = [
                         ApiResponse(
                             responseCode = "200",
@@ -164,6 +185,7 @@ class UserRouter(
                 GET("/{id}/profile", handler::findProfile)
                 GET("/{id}/posts", handler::findPosts)
                 GET("/{id}/liked-posts", handler::findLikedPosts)
+                GET("/{id}/images", handler::findImages)
                 GET("/{id}", handler::findById)
             }
         }

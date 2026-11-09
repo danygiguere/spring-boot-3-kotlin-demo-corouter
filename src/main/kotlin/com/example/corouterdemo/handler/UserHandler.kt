@@ -28,17 +28,17 @@ class UserHandler(
     suspend fun findAll(request: ServerRequest): ServerResponse {
         val afterId = request.afterId()
         val limit = request.limit()
-        return ServerResponse.ok().bodyAndAwait(userService.findAll(currentUser.get(), afterId, limit))
+        return ServerResponse.ok().bodyAndAwait(userService.findAll(afterId, limit))
     }
 
     suspend fun findById(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
-        return ServerResponse.ok().bodyValueAndAwait(userService.findById(currentUser.get(), id))
+        return ServerResponse.ok().bodyValueAndAwait(userService.findById(id))
     }
 
     suspend fun findProfile(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
-        return ServerResponse.ok().bodyValueAndAwait(userService.findProfile(currentUser.get(), id))
+        return ServerResponse.ok().bodyValueAndAwait(userService.findProfile(id))
     }
 
     suspend fun replaceMyProfile(request: ServerRequest): ServerResponse {
@@ -51,13 +51,20 @@ class UserHandler(
         val id = request.pathId("id")
         val beforeId = request.beforeId()
         val limit = request.limit()
-        return ServerResponse.ok().bodyValueAndAwait(postService.findByAuthor(currentUser.get(), id, beforeId, limit))
+        return ServerResponse.ok().bodyAndAwait(postService.findByAuthor(id, beforeId, limit))
     }
 
     suspend fun findLikedPosts(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
         val beforeId = request.beforeId()
         val limit = request.limit()
-        return ServerResponse.ok().bodyValueAndAwait(postService.findLikedBy(currentUser.get(), id, beforeId, limit))
+        return ServerResponse.ok().bodyAndAwait(postService.findLikedBy(id, beforeId, limit))
+    }
+
+    suspend fun findImages(request: ServerRequest): ServerResponse {
+        val id = request.pathId("id")
+        val beforeId = request.beforeId()
+        val limit = request.limit()
+        return ServerResponse.ok().bodyAndAwait(userService.findImages(id, beforeId, limit))
     }
 }
