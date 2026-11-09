@@ -3,7 +3,7 @@ package com.example.corouterdemo.security
 import com.example.corouterdemo.domain.entity.User
 import com.example.corouterdemo.dto.TokenResponse
 import com.nimbusds.jose.jwk.source.ImmutableSecret
-import org.springframework.context.annotation.Profile
+import org.springframework.boot.autoconfigure.web.ServerProperties
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm
 import org.springframework.security.oauth2.jwt.JwsHeader
 import org.springframework.security.oauth2.jwt.JwtClaimsSet
@@ -15,14 +15,21 @@ import java.util.UUID
 
 /**
  * Signs tokens for local development only. In production, tokens come from the identity provider; this application
- * only verifies them (see [SecurityConfig.jwtDecoder]).
+ * only verifies them (see [SecurityConfig.jwtDecoder]). Refuses to start unless the server binds to loopback.
  */
 @Component
-@Profile("dev")
+@DevTokenEnabled
 class DevTokenIssuer(
     private val properties: JwtProperties,
     private val clock: Clock,
+    serverProperties: ServerProperties,
 ) {
+    init {
+        check(serverProperties.address?.isLoopbackAddress == true) {
+            "DEV_TOKEN_ENABLED requires a loopback SERVER_ADDRESS (127.0.0.1)."
+        }
+    }
+
     private val encoder = NimbusJwtEncoder(ImmutableSecret(SecurityConfig.secretKey(properties)))
 
     fun issue(user: User): TokenResponse {

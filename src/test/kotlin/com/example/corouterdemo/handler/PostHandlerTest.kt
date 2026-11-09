@@ -119,7 +119,7 @@ class PostHandlerTest : IntegrationTest() {
             .post()
             .uri("/posts")
             .header("Idempotency-Key", newKey())
-            .bodyValue(mapOf("content" to " ", "imageUrls" to List(11) { "https://images.example.com/x.jpg" }))
+            .bodyValue(mapOf("content" to " ", "imageUrls" to List(11) { "https://images.example.com/$it.jpg" }))
             .exchange()
             .expectStatus()
             .isEqualTo(422)

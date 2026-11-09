@@ -50,7 +50,7 @@ data class ProfileRequest(
     val avatarUrl: String? = null,
 )
 
-@Schema(description = "Dev token request (dev profile only)")
+@Schema(description = "Dev token request (DEV_TOKEN_ENABLED only)")
 data class DevTokenRequest(
     @field:NotBlank(message = "{auth.email.required}")
     @field:Email(message = "{auth.email.invalid}")

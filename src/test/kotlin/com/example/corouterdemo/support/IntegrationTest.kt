@@ -3,7 +3,6 @@ package com.example.corouterdemo.support
 import com.example.corouterdemo.dto.TokenResponse
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.reactive.server.WebTestClient
@@ -12,14 +11,23 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 
 /**
- * Base class for integration tests: one PostgreSQL Testcontainer for the whole suite, and the dev profile, so the
- * deterministic seed (`db/seed/R__dev_seed.sql`) and `/auth/dev-token` are available.
+ * Base class for integration tests: one PostgreSQL Testcontainer for the whole suite, and the local settings of
+ * `.env.example`, so the deterministic seed (`db/seed/R__dev_seed.sql`), `/auth/dev-token` and Swagger are available.
  *
  * Tests that write create their own posts (as users 3, 4 and 12) and never change seeded posts, likes or the users
  * 1, 2 and 11, so seed-based assertions hold in any order.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("dev")
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = [
+        "spring.flyway.locations=classpath:db/migration,classpath:db/seed",
+        "springdoc.api-docs.enabled=true",
+        "springdoc.swagger-ui.enabled=true",
+        "server.address=127.0.0.1",
+        "app.dev-token.enabled=true",
+        "app.jwt.secret=test-only-key-at-least-32-bytes-long-0123456789",
+    ],
+)
 abstract class IntegrationTest {
     @Autowired
     lateinit var webTestClient: WebTestClient

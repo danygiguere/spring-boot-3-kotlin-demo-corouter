@@ -1,6 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import org.springframework.boot.gradle.tasks.run.BootRun
 
 plugins {
     id("org.springframework.boot") version "3.5.6"
@@ -67,12 +66,6 @@ gradle.taskGraph.afterTask {
     if (name.startsWith("spotless") && name.endsWith("Check") && state.failure != null) {
         logger.lifecycle("\n⚠️  Formatting issues found. Run './gradlew spotlessApply build' to auto-fix and build.\n")
     }
-}
-
-// bootRun is local development: dev profile (seed data, dev tokens, Swagger UI) unless overridden.
-// A packaged jar starts with no profile, so none of the dev-only features are reachable in production.
-tasks.named<BootRun>("bootRun") {
-    systemProperty("spring.profiles.active", System.getenv("SPRING_PROFILES_ACTIVE") ?: "dev")
 }
 
 tasks.withType<Test> {
