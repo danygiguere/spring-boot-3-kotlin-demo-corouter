@@ -39,8 +39,18 @@ class PostRouter(
                     operationId = "getFeed",
                     summary = "The feed, newest first, with image and like counts",
                     parameters = [
-                        Parameter(`in` = ParameterIn.QUERY, name = "beforeId", description = "Cursor: last id of the previous page"),
-                        Parameter(`in` = ParameterIn.QUERY, name = "limit", description = "1 to 100"),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "beforeId",
+                            description = "Cursor: last id of the previous page",
+                            schema = Schema(type = "integer", format = "int64", minimum = "1"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "limit",
+                            description = "1 to 100",
+                            schema = Schema(type = "integer", format = "int32", minimum = "1", maximum = "100"),
+                        ),
                     ],
                     responses = [
                         ApiResponse(
@@ -87,6 +97,14 @@ class PostRouter(
                 Operation(
                     operationId = "getPostImages",
                     summary = "List a post's images in display order (hasMany)",
+                    parameters = [
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                    ],
                     responses = [
                         ApiResponse(
                             responseCode = "200",
@@ -105,8 +123,24 @@ class PostRouter(
                     operationId = "getPostLikers",
                     summary = "List users who like a post (manyToMany)",
                     parameters = [
-                        Parameter(`in` = ParameterIn.QUERY, name = "afterId", description = "Cursor: last id of the previous page"),
-                        Parameter(`in` = ParameterIn.QUERY, name = "limit", description = "1 to 100"),
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "afterId",
+                            description = "Cursor: last id of the previous page",
+                            schema = Schema(type = "integer", format = "int64", minimum = "0"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "limit",
+                            description = "1 to 100",
+                            schema = Schema(type = "integer", format = "int32", minimum = "1", maximum = "100"),
+                        ),
                     ],
                     responses = [
                         ApiResponse(
@@ -125,6 +159,14 @@ class PostRouter(
                 Operation(
                     operationId = "likePost",
                     summary = "Like a post as the authenticated user (idempotent)",
+                    parameters = [
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                    ],
                     responses = [ApiResponse(responseCode = "204", description = "Liked")],
                 ),
         ),
@@ -137,6 +179,14 @@ class PostRouter(
                 Operation(
                     operationId = "unlikePost",
                     summary = "Remove the authenticated user's like (idempotent)",
+                    parameters = [
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                    ],
                     responses = [ApiResponse(responseCode = "204", description = "Not liked")],
                 ),
         ),
@@ -149,6 +199,14 @@ class PostRouter(
                 Operation(
                     operationId = "getPostById",
                     summary = "Get a post with its author, images and like count",
+                    parameters = [
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                    ],
                     responses = [
                         ApiResponse(
                             responseCode = "200",
@@ -166,6 +224,14 @@ class PostRouter(
                 Operation(
                     operationId = "updatePost",
                     summary = "Edit a post's content (author only)",
+                    parameters = [
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                    ],
                     requestBody = RequestBody(content = [Content(schema = Schema(implementation = UpdatePostRequest::class))]),
                     responses = [
                         ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = PostDetails::class))]),
@@ -182,6 +248,14 @@ class PostRouter(
                 Operation(
                     operationId = "deletePost",
                     summary = "Delete a post and its images (author only)",
+                    parameters = [
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                    ],
                     responses = [
                         ApiResponse(responseCode = "204", description = "Deleted"),
                         ApiResponse(responseCode = "403", description = "Not the author"),

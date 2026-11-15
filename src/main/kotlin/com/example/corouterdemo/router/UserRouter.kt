@@ -70,8 +70,18 @@ class UserRouter(
                     operationId = "getUsers",
                     summary = "List users, oldest first",
                     parameters = [
-                        Parameter(`in` = ParameterIn.QUERY, name = "afterId", description = "Cursor: last id of the previous page"),
-                        Parameter(`in` = ParameterIn.QUERY, name = "limit", description = "1 to 100"),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "afterId",
+                            description = "Cursor: last id of the previous page",
+                            schema = Schema(type = "integer", format = "int64", minimum = "0"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "limit",
+                            description = "1 to 100",
+                            schema = Schema(type = "integer", format = "int32", minimum = "1", maximum = "100"),
+                        ),
                     ],
                     responses = [
                         ApiResponse(
@@ -90,6 +100,14 @@ class UserRouter(
                 Operation(
                     operationId = "getUserProfile",
                     summary = "Get a user's profile (hasOne)",
+                    parameters = [
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                    ],
                     responses = [
                         ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = ProfileResponse::class))]),
                     ],
@@ -105,8 +123,24 @@ class UserRouter(
                     operationId = "getUserPosts",
                     summary = "List a user's posts, newest first (hasMany)",
                     parameters = [
-                        Parameter(`in` = ParameterIn.QUERY, name = "beforeId", description = "Cursor: last id of the previous page"),
-                        Parameter(`in` = ParameterIn.QUERY, name = "limit", description = "1 to 100"),
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "beforeId",
+                            description = "Cursor: last id of the previous page",
+                            schema = Schema(type = "integer", format = "int64", minimum = "1"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "limit",
+                            description = "1 to 100",
+                            schema = Schema(type = "integer", format = "int32", minimum = "1", maximum = "100"),
+                        ),
                     ],
                     responses = [
                         ApiResponse(
@@ -126,8 +160,24 @@ class UserRouter(
                     operationId = "getUserLikedPosts",
                     summary = "List posts a user likes, newest first (manyToMany)",
                     parameters = [
-                        Parameter(`in` = ParameterIn.QUERY, name = "beforeId", description = "Cursor: last id of the previous page"),
-                        Parameter(`in` = ParameterIn.QUERY, name = "limit", description = "1 to 100"),
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "beforeId",
+                            description = "Cursor: last id of the previous page",
+                            schema = Schema(type = "integer", format = "int64", minimum = "1"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "limit",
+                            description = "1 to 100",
+                            schema = Schema(type = "integer", format = "int32", minimum = "1", maximum = "100"),
+                        ),
                     ],
                     responses = [
                         ApiResponse(
@@ -147,8 +197,24 @@ class UserRouter(
                     operationId = "getUserImages",
                     summary = "List images of a user's posts, newest first (hasManyThrough)",
                     parameters = [
-                        Parameter(`in` = ParameterIn.QUERY, name = "beforeId", description = "Cursor: last id of the previous page"),
-                        Parameter(`in` = ParameterIn.QUERY, name = "limit", description = "1 to 100"),
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "beforeId",
+                            description = "Cursor: last id of the previous page",
+                            schema = Schema(type = "integer", format = "int64", minimum = "1"),
+                        ),
+                        Parameter(
+                            `in` = ParameterIn.QUERY,
+                            name = "limit",
+                            description = "1 to 100",
+                            schema = Schema(type = "integer", format = "int32", minimum = "1", maximum = "100"),
+                        ),
                     ],
                     responses = [
                         ApiResponse(
@@ -167,6 +233,14 @@ class UserRouter(
                 Operation(
                     operationId = "getUserById",
                     summary = "Get a user (no email)",
+                    parameters = [
+                        Parameter(
+                            `in` = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            schema = Schema(type = "integer", format = "int64"),
+                        ),
+                    ],
                     responses = [
                         ApiResponse(
                             responseCode = "200",
