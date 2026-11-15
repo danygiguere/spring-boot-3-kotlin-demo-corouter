@@ -116,7 +116,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/users?afterId=0&limit=20",
+              "raw": "{{baseUrl}}/users?cursor=0&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -125,7 +125,7 @@
               ],
               "query": [
                 {
-                  "key": "afterId",
+                  "key": "cursor",
                   "value": "0"
                 },
                 {

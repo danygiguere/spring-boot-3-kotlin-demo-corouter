@@ -54,9 +54,9 @@ Router (coRouter DSL + OpenAPI)  →  Handler (HTTP I/O, validation)  →  Servi
 
 - **Router** (`router/`) — `@Configuration` exposing a `coRouter { }` `@Bean`, annotated with `@RouterOperations` so
   Springdoc documents it. Routes use `.nest("/x")`. **Order routes carefully:** literal paths before catch-alls
-  (`GET("/me")` before `GET("/{id}")`).
+  (`GET("/me")` before `GET("/{id}")`). Paged lists document their response with `PageDocs`.
 - **Handler** (`handler/`) — `@Component` with `suspend fun x(request: ServerRequest): ServerResponse`. Reads the
-  principal (`currentUser.get()`), params (`request.pathId()`, `limit()`, `beforeId()`, `afterId()`) and the body
+  principal (`currentUser.get()`), params (`request.pathId()`, `limit()`, `beforeCursor()`, `afterCursor()`) and the body
   (`request.awaitValidBody<T>(validator)`), calls the service, responds with `bodyValueAndAwait` (single/list) or
   `bodyAndAwait` (`Flow`). No business logic.
 - **Service** (`service/`) — `@Service`. Business logic and permission checks. `suspend` functions returning DTOs,
@@ -68,7 +68,9 @@ Router (coRouter DSL + OpenAPI)  →  Handler (HTTP I/O, validation)  →  Servi
 - **Entity** (`domain/entity/`) — `data class` with `@Table` and `@Id val id: Long? = null`. Never serialized.
 - **DTO** (`dto/`) — request classes (nullable fields + `@field:` constraints, explicit writable fields; element
   constraints like `List<@URL String>` rely on `-Xemit-jvm-type-annotations`) and response classes (explicit exposed
-  fields). No response envelope; lists are JSON arrays with keyset pagination.
+  fields). Unpaginated lists are JSON arrays; paginated lists are `CursorPage<T>` (`data`, `nextCursor`, null on
+  the last page) with keyset pagination: one `cursor` parameter, the service fetches `limit + 1` rows and
+  `CursorPage.of` trims the extra one.
 
 Coroutine rules: never `runBlocking` in main code; independent reads use `coroutineScope { async { } }`; a list page
 and its related data (author, counts) come from one query into a flat row (`PostSummaryRow`). Inside a transaction,

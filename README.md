@@ -78,23 +78,23 @@ readable by every user; a missing one answers **404**, a write by someone other 
 | `POST` | `/auth/dev-token` | Token for a seeded user, no password — **`DEV_TOKEN_ENABLED` only** |
 | `GET` | `/users/me` | The caller (with email) |
 | `PUT` | `/users/me/profile` | Create or replace the caller's profile |
-| `GET` | `/users?afterId=&limit=` | Users, oldest first |
+| `GET` | `/users?cursor=&limit=` | Users, oldest first |
 | `GET` | `/users/{id}` | A user (no email) |
 | `GET` | `/users/{id}/profile` | A user's profile |
-| `GET` | `/users/{id}/posts?beforeId=&limit=` | A user's posts, newest first |
-| `GET` | `/users/{id}/liked-posts?beforeId=&limit=` | Posts a user likes |
-| `GET` | `/users/{id}/images?beforeId=&limit=` | Images of a user's posts, newest first |
-| `GET` | `/posts?beforeId=&limit=` | Feed, newest first, with image and like counts |
+| `GET` | `/users/{id}/posts?cursor=&limit=` | A user's posts, newest first |
+| `GET` | `/users/{id}/liked-posts?cursor=&limit=` | Posts a user likes |
+| `GET` | `/users/{id}/images?cursor=&limit=` | Images of a user's posts, newest first |
+| `GET` | `/posts?cursor=&limit=` | Feed, newest first, with image and like counts |
 | `POST` | `/posts` | Publish a post with up to 10 images — requires `Idempotency-Key` |
 | `GET` | `/posts/{id}` | A post with author, images and like count |
 | `PUT` | `/posts/{id}` | Edit content — author only (403 otherwise) |
 | `DELETE` | `/posts/{id}` | Delete with its images — author only |
 | `GET` | `/posts/{id}/images` | Images in display order |
-| `GET` | `/posts/{id}/likes?afterId=&limit=` | Users who like the post |
+| `GET` | `/posts/{id}/likes?cursor=&limit=` | Users who like the post |
 | `PUT` / `DELETE` | `/posts/{id}/likes` | Like / unlike as the caller (idempotent, 204) |
 
-Lists use keyset pagination: pass the last `id` of a page as `beforeId` (newest-first lists) or `afterId`
-(oldest-first lists). `limit` defaults to 20, max 100.
+Lists use keyset pagination and return `{ "data": [...], "nextCursor": <id or null> }`. Pass `nextCursor` as `cursor`
+to get the next page; `null` means the last page. `limit` defaults to 20, max 100.
 
 **Idempotency:** send a unique `Idempotency-Key` (8–128 chars, e.g. a UUID) with each new post. Retrying with the same
 key and body returns the original post with `Idempotent-Replayed: true`; the same key with a different body is a

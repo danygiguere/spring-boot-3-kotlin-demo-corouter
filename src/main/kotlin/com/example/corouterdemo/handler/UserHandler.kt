@@ -1,9 +1,9 @@
 package com.example.corouterdemo.handler
 
 import com.example.corouterdemo.dto.ProfileRequest
-import com.example.corouterdemo.extension.afterId
+import com.example.corouterdemo.extension.afterCursor
 import com.example.corouterdemo.extension.awaitValidBody
-import com.example.corouterdemo.extension.beforeId
+import com.example.corouterdemo.extension.beforeCursor
 import com.example.corouterdemo.extension.limit
 import com.example.corouterdemo.extension.pathId
 import com.example.corouterdemo.security.CurrentUser
@@ -13,7 +13,6 @@ import jakarta.validation.Validator
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
-import org.springframework.web.reactive.function.server.bodyAndAwait
 import org.springframework.web.reactive.function.server.bodyValueAndAwait
 
 @Component
@@ -26,9 +25,9 @@ class UserHandler(
     suspend fun me(request: ServerRequest): ServerResponse = ServerResponse.ok().bodyValueAndAwait(userService.me(currentUser.get()))
 
     suspend fun findAll(request: ServerRequest): ServerResponse {
-        val afterId = request.afterId()
+        val cursor = request.afterCursor()
         val limit = request.limit()
-        return ServerResponse.ok().bodyAndAwait(userService.findAll(afterId, limit))
+        return ServerResponse.ok().bodyValueAndAwait(userService.findAll(cursor, limit))
     }
 
     suspend fun findById(request: ServerRequest): ServerResponse {
@@ -49,22 +48,22 @@ class UserHandler(
 
     suspend fun findPosts(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
-        val beforeId = request.beforeId()
+        val cursor = request.beforeCursor()
         val limit = request.limit()
-        return ServerResponse.ok().bodyAndAwait(postService.findByAuthor(id, beforeId, limit))
+        return ServerResponse.ok().bodyValueAndAwait(postService.findByAuthor(id, cursor, limit))
     }
 
     suspend fun findLikedPosts(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
-        val beforeId = request.beforeId()
+        val cursor = request.beforeCursor()
         val limit = request.limit()
-        return ServerResponse.ok().bodyAndAwait(postService.findLikedBy(id, beforeId, limit))
+        return ServerResponse.ok().bodyValueAndAwait(postService.findLikedBy(id, cursor, limit))
     }
 
     suspend fun findImages(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
-        val beforeId = request.beforeId()
+        val cursor = request.beforeCursor()
         val limit = request.limit()
-        return ServerResponse.ok().bodyAndAwait(userService.findImages(id, beforeId, limit))
+        return ServerResponse.ok().bodyValueAndAwait(userService.findImages(id, cursor, limit))
     }
 }

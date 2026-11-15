@@ -3,9 +3,7 @@ package com.example.corouterdemo.router
 import com.example.corouterdemo.dto.CreatePostRequest
 import com.example.corouterdemo.dto.ImageResponse
 import com.example.corouterdemo.dto.PostDetails
-import com.example.corouterdemo.dto.PostSummary
 import com.example.corouterdemo.dto.UpdatePostRequest
-import com.example.corouterdemo.dto.UserResponse
 import com.example.corouterdemo.handler.PostHandler
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -41,21 +39,21 @@ class PostRouter(
                     parameters = [
                         Parameter(
                             `in` = ParameterIn.QUERY,
-                            name = "beforeId",
-                            description = "Cursor: last id of the previous page",
+                            name = "cursor",
+                            description = PageDocs.CURSOR,
                             schema = Schema(type = "integer", format = "int64", minimum = "1"),
                         ),
                         Parameter(
                             `in` = ParameterIn.QUERY,
                             name = "limit",
-                            description = "1 to 100",
+                            description = PageDocs.LIMIT,
                             schema = Schema(type = "integer", format = "int32", minimum = "1", maximum = "100"),
                         ),
                     ],
                     responses = [
                         ApiResponse(
                             responseCode = "200",
-                            content = [Content(array = ArraySchema(schema = Schema(implementation = PostSummary::class)))],
+                            content = [Content(schema = Schema(implementation = PageDocs.Posts::class))],
                         ),
                     ],
                 ),
@@ -131,21 +129,21 @@ class PostRouter(
                         ),
                         Parameter(
                             `in` = ParameterIn.QUERY,
-                            name = "afterId",
-                            description = "Cursor: last id of the previous page",
+                            name = "cursor",
+                            description = PageDocs.CURSOR,
                             schema = Schema(type = "integer", format = "int64", minimum = "0"),
                         ),
                         Parameter(
                             `in` = ParameterIn.QUERY,
                             name = "limit",
-                            description = "1 to 100",
+                            description = PageDocs.LIMIT,
                             schema = Schema(type = "integer", format = "int32", minimum = "1", maximum = "100"),
                         ),
                     ],
                     responses = [
                         ApiResponse(
                             responseCode = "200",
-                            content = [Content(array = ArraySchema(schema = Schema(implementation = UserResponse::class)))],
+                            content = [Content(schema = Schema(implementation = PageDocs.Users::class))],
                         ),
                     ],
                 ),

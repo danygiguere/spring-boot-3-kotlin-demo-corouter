@@ -23,10 +23,10 @@ fun ServerRequest.pathId(name: String): Long =
 fun ServerRequest.limit(): Int = queryLong("limit", DEFAULT_LIMIT.toLong(), 1, MAX_LIMIT.toLong()).toInt()
 
 /** Keyset cursor for newest-first lists: only ids strictly below it are returned. */
-fun ServerRequest.beforeId(): Long = queryLong("beforeId", Long.MAX_VALUE, 1, Long.MAX_VALUE)
+fun ServerRequest.beforeCursor(): Long = queryLong("cursor", Long.MAX_VALUE, 1, Long.MAX_VALUE)
 
 /** Keyset cursor for oldest-first lists: only ids strictly above it are returned. */
-fun ServerRequest.afterId(): Long = queryLong("afterId", 0, 0, Long.MAX_VALUE)
+fun ServerRequest.afterCursor(): Long = queryLong("cursor", 0, 0, Long.MAX_VALUE)
 
 private fun ServerRequest.queryLong(
     name: String,

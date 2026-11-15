@@ -53,6 +53,19 @@ class OpenApiTest : IntegrationTest() {
             .exists()
             .jsonPath("$.paths['/posts/{id}/likes'].put")
             .exists()
+            // Lists are cursor pages: one documented `cursor` parameter, no per-direction id parameters.
+            .jsonPath("$.paths['/posts'].get.responses['200'].content['*/*'].schema['\$ref']")
+            .isEqualTo("#/components/schemas/CursorPagePostSummary")
+            .jsonPath("$.paths['/posts'].get.parameters[?(@.name == 'cursor')].description")
+            .isNotEmpty
+            .jsonPath("$.paths['/users'].get.parameters[?(@.name == 'cursor')]")
+            .exists()
+            .jsonPath("$.paths['/users'].get.parameters[?(@.name == 'afterId')]")
+            .isEmpty
+            .jsonPath("$.paths['/posts'].get.parameters[?(@.name == 'beforeId')]")
+            .isEmpty
+            .jsonPath("$.components.schemas.CursorPagePostSummary.properties.nextCursor")
+            .exists()
             .jsonPath("$.components.securitySchemes.bearerAuth")
             .exists()
     }

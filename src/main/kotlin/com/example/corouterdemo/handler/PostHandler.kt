@@ -3,9 +3,9 @@ package com.example.corouterdemo.handler
 import com.example.corouterdemo.dto.CreatePostRequest
 import com.example.corouterdemo.dto.UpdatePostRequest
 import com.example.corouterdemo.error.BadRequestException
-import com.example.corouterdemo.extension.afterId
+import com.example.corouterdemo.extension.afterCursor
 import com.example.corouterdemo.extension.awaitValidBody
-import com.example.corouterdemo.extension.beforeId
+import com.example.corouterdemo.extension.beforeCursor
 import com.example.corouterdemo.extension.limit
 import com.example.corouterdemo.extension.pathId
 import com.example.corouterdemo.security.CurrentUser
@@ -26,9 +26,9 @@ class PostHandler(
     private val validator: Validator,
 ) {
     suspend fun feed(request: ServerRequest): ServerResponse {
-        val beforeId = request.beforeId()
+        val cursor = request.beforeCursor()
         val limit = request.limit()
-        return ServerResponse.ok().bodyAndAwait(postService.feed(beforeId, limit))
+        return ServerResponse.ok().bodyValueAndAwait(postService.feed(cursor, limit))
     }
 
     suspend fun create(request: ServerRequest): ServerResponse {
@@ -67,9 +67,9 @@ class PostHandler(
 
     suspend fun findLikers(request: ServerRequest): ServerResponse {
         val id = request.pathId("id")
-        val afterId = request.afterId()
+        val cursor = request.afterCursor()
         val limit = request.limit()
-        return ServerResponse.ok().bodyAndAwait(postService.findLikers(id, afterId, limit))
+        return ServerResponse.ok().bodyValueAndAwait(postService.findLikers(id, cursor, limit))
     }
 
     suspend fun like(request: ServerRequest): ServerResponse {

@@ -24,20 +24,49 @@ class UserHandlerTest : IntegrationTest() {
     fun `list - is keyset paginated`() {
         asUser(ALICE)
             .get()
-            .uri("/users?afterId=1&limit=3")
+            .uri("/users?cursor=1&limit=3")
             .exchange()
             .expectStatus()
             .isOk
             .expectBody()
-            .jsonPath("$.length()")
+            .jsonPath("$.data.length()")
             .isEqualTo(3)
-            .jsonPath("$[0].id")
+            .jsonPath("$.data[0].id")
             .isEqualTo(2)
-            .jsonPath("$[2].id")
+            .jsonPath("$.data[2].id")
+            .isEqualTo(4)
+            .jsonPath("$.nextCursor")
             .isEqualTo(4)
             // Other users are listed without their email.
-            .jsonPath("$[0].email")
+            .jsonPath("$.data[0].email")
             .doesNotExist()
+    }
+
+    @Test
+    fun `list - last page has no next cursor`() {
+        // 50 users: a short page and an exactly full page both end the list.
+        asUser(ALICE)
+            .get()
+            .uri("/users?cursor=48&limit=5")
+            .exchange()
+            .expectStatus()
+            .isOk
+            .expectBody()
+            .jsonPath("$.data[*].id")
+            .isEqualTo(listOf(49, 50))
+            .jsonPath("$.nextCursor")
+            .isEmpty
+        asUser(ALICE)
+            .get()
+            .uri("/users?cursor=47&limit=3")
+            .exchange()
+            .expectStatus()
+            .isOk
+            .expectBody()
+            .jsonPath("$.data[*].id")
+            .isEqualTo(listOf(48, 49, 50))
+            .jsonPath("$.nextCursor")
+            .isEmpty
     }
 
     @Test
@@ -157,10 +186,38 @@ class UserHandlerTest : IntegrationTest() {
             .expectStatus()
             .isOk
             .expectBody()
-            .jsonPath("$[*].id")
+            .jsonPath("$.data[*].id")
             .isEqualTo(listOf(4, 3, 2, 1))
-            .jsonPath("$[0].author.name")
+            .jsonPath("$.data[0].author.name")
             .isEqualTo("Alice")
+            .jsonPath("$.nextCursor")
+            .isEmpty
+    }
+
+    @Test
+    fun `posts - next cursor continues the list`() {
+        asUser(BOB)
+            .get()
+            .uri("/users/1/posts?limit=3")
+            .exchange()
+            .expectStatus()
+            .isOk
+            .expectBody()
+            .jsonPath("$.data[*].id")
+            .isEqualTo(listOf(4, 3, 2))
+            .jsonPath("$.nextCursor")
+            .isEqualTo(2)
+        asUser(BOB)
+            .get()
+            .uri("/users/1/posts?cursor=2&limit=3")
+            .exchange()
+            .expectStatus()
+            .isOk
+            .expectBody()
+            .jsonPath("$.data[*].id")
+            .isEqualTo(listOf(1))
+            .jsonPath("$.nextCursor")
+            .isEmpty
     }
 
     @Test
@@ -181,15 +238,17 @@ class UserHandlerTest : IntegrationTest() {
         // Alice's posts 1 to 3 have 1, 2 and 3 images: ids 1 to 6.
         asUser(BOB)
             .get()
-            .uri("/users/1/images?beforeId=6&limit=3")
+            .uri("/users/1/images?cursor=6&limit=3")
             .exchange()
             .expectStatus()
             .isOk
             .expectBody()
-            .jsonPath("$[*].id")
+            .jsonPath("$.data[*].id")
             .isEqualTo(listOf(5, 4, 3))
-            .jsonPath("$[*].postId")
+            .jsonPath("$.data[*].postId")
             .isEqualTo(listOf(3, 3, 2))
+            .jsonPath("$.nextCursor")
+            .isEqualTo(3)
     }
 
     @Test
