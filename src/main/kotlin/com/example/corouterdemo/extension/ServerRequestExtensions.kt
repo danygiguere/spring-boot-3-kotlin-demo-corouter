@@ -1,6 +1,6 @@
 package com.example.corouterdemo.extension
 
-import com.example.corouterdemo.exception.AppException
+import com.example.corouterdemo.error.BadRequestException
 import jakarta.validation.Validator
 import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.awaitBodyOrNull
@@ -17,7 +17,7 @@ fun ServerRequest.locale(): Locale = exchange().localeContext.locale ?: Locale.E
 /** A positive numeric path variable (an entity id). */
 fun ServerRequest.pathId(name: String): Long =
     pathVariable(name).toLongOrNull()?.takeIf { it > 0 }
-        ?: throw AppException.BadRequest("error.path.param.invalid", arrayOf(name))
+        ?: throw BadRequestException("error.request.invalidPathParameter", listOf(name))
 
 /** Page size: [DEFAULT_LIMIT] by default, never more than [MAX_LIMIT]. */
 fun ServerRequest.limit(): Int = queryLong("limit", DEFAULT_LIMIT.toLong(), 1, MAX_LIMIT.toLong()).toInt()
@@ -36,11 +36,11 @@ private fun ServerRequest.queryLong(
 ): Long {
     val raw = queryParam(name).orElse(null) ?: return default
     return raw.toLongOrNull()?.takeIf { it in min..max }
-        ?: throw AppException.BadRequest("error.query.param.invalid", arrayOf(name, min, max))
+        ?: throw BadRequestException("error.request.invalidQueryParameter", listOf(name, min, max))
 }
 
 /** The decoded, validated body; a 400 when it is missing. coRouter has no `@Valid`: this is its counterpart. */
 suspend inline fun <reified T : Any> ServerRequest.awaitValidBody(validator: Validator): T {
-    val body = awaitBodyOrNull<T>() ?: throw AppException.BadRequest("error.body.required")
+    val body = awaitBodyOrNull<T>() ?: throw BadRequestException("error.request.missingBody")
     return validator.validateAndThrow(body, locale())
 }

@@ -1,7 +1,7 @@
 package com.example.corouterdemo.service
 
 import com.example.corouterdemo.dto.TokenResponse
-import com.example.corouterdemo.exception.AppException
+import com.example.corouterdemo.error.UnauthenticatedException
 import com.example.corouterdemo.repository.UserRepository
 import com.example.corouterdemo.security.DevTokenEnabled
 import com.example.corouterdemo.security.DevTokenIssuer
@@ -16,5 +16,5 @@ class DevTokenService(
 ) {
     suspend fun issue(email: String): TokenResponse =
         userRepository.findByEmail(email)?.let(issuer::issue)
-            ?: throw AppException.Unauthorized("error.auth.invalid")
+            ?: throw UnauthenticatedException("error.auth.invalid", internalMessage = "No user with this email")
 }

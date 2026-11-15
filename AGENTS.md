@@ -60,7 +60,7 @@ Router (coRouter DSL + OpenAPI)  →  Handler (HTTP I/O, validation)  →  Servi
   (`request.awaitValidBody<T>(validator)`), calls the service, responds with `bodyValueAndAwait` (single/list) or
   `bodyAndAwait` (`Flow`). No business logic.
 - **Service** (`service/`) — `@Service`. Business logic and permission checks. `suspend` functions returning DTOs,
-  `List` or `Flow`; throws `AppException.*`. Run checks before returning a `Flow` (a 404 must be raised
+  `List` or `Flow`; throws `ApiException` subclasses (`NotFoundException`, …; `internalMessage` is logged only). Run checks before returning a `Flow` (a 404 must be raised
   before the response starts). Multi-table writes go through `transactionalOperator.executeAndAwait { }`.
 - **Repository** (`repository/`) — `CoroutineCrudRepository<Entity, Long>` + `@Query`: `suspend` for single rows (null
   when absent), `Flow` for lists. Writes take the owner's `userId` in the WHERE clause and return the affected row
@@ -92,7 +92,8 @@ stay sequential (one connection).
 - Test names use backtick descriptions: `` `create - same key with different body returns 409` ``.
 - Tests that write create their own posts as users 3 and 4; never change seeded posts/likes or users 1 and 2, so
   seed-based assertions hold in any order.
-- Assert status and the problem JSON (`$.type`, `$.status`, `$.errors.<field>`, `$.correlationId`); cover the success
+- Every public message key exists in `messages.properties` and `messages_fr.properties` (`MessageBundleConsistencyTest`, `MessageKeyUsageTest`). Use the typographic apostrophe (’) in messages.
+- Assert status and the problem JSON (`$.code`, `$.status`, `$.errors[?(@.field == '<field>')]`, `$.correlationId`); cover the success
   path, validation errors, and the not-found / not-owner paths.
 
 # Engineering audit digest

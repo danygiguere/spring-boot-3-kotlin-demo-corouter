@@ -1,7 +1,6 @@
 package com.example.corouterdemo.security
 
-import com.example.corouterdemo.exception.AppException
-import com.example.corouterdemo.exception.ApplicationExceptionHandler
+import com.example.corouterdemo.error.GlobalExceptionHandler
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -37,12 +36,12 @@ class SecurityConfig {
     @Bean
     fun securityWebFilterChain(
         http: ServerHttpSecurity,
-        exceptionHandler: ApplicationExceptionHandler,
+        exceptionHandler: GlobalExceptionHandler,
     ): SecurityWebFilterChain {
         // 401/403 go through the same handler as every other error: same RFC 9457 shape, locale and correlationId.
         val unauthorized =
-            ServerAuthenticationEntryPoint { exchange, _ -> exceptionHandler.handle(exchange, AppException.Unauthorized("error.401")) }
-        val forbidden = ServerAccessDeniedHandler { exchange, _ -> exceptionHandler.handle(exchange, AppException.Forbidden("error.403")) }
+            ServerAuthenticationEntryPoint { exchange, ex -> exceptionHandler.handle(exchange, ex) }
+        val forbidden = ServerAccessDeniedHandler { exchange, ex -> exceptionHandler.handle(exchange, ex) }
 
         return http {
             // Bearer tokens, no cookies: the browser never attaches credentials on its own, so CSRF does not apply.

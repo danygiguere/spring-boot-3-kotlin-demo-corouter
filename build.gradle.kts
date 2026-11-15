@@ -36,6 +36,8 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+    // Carries the correlation ID in the MDC across coroutine suspensions and thread switches.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("io.github.oshai:kotlin-logging-jvm:7.0.3")
     developmentOnly("me.paulschwarz:springboot3-dotenv:5.1.0")

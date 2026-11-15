@@ -6,7 +6,7 @@ import com.example.corouterdemo.dto.MeResponse
 import com.example.corouterdemo.dto.ProfileRequest
 import com.example.corouterdemo.dto.ProfileResponse
 import com.example.corouterdemo.dto.UserResponse
-import com.example.corouterdemo.exception.AppException
+import com.example.corouterdemo.error.NotFoundException
 import com.example.corouterdemo.repository.ImageRepository
 import com.example.corouterdemo.repository.ProfileRepository
 import com.example.corouterdemo.repository.UserRepository
@@ -34,7 +34,7 @@ class UserService(
         val user = requireUser(userId)
         val profile =
             profileRepository.findByUserId(user.id!!)
-                ?: throw AppException.NotFound("error.profile.not.found", arrayOf(userId))
+                ?: throw NotFoundException("error.profile.notFound", listOf(userId))
         return ProfileResponse(profile)
     }
 
@@ -58,5 +58,5 @@ class UserService(
     }
 
     suspend fun requireUser(userId: Long): User =
-        userRepository.findById(userId) ?: throw AppException.NotFound("error.user.not.found", arrayOf(userId))
+        userRepository.findById(userId) ?: throw NotFoundException("error.user.notFound", listOf(userId))
 }

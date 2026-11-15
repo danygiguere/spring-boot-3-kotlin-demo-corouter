@@ -2,7 +2,7 @@ package com.example.corouterdemo.handler
 
 import com.example.corouterdemo.dto.CreatePostRequest
 import com.example.corouterdemo.dto.UpdatePostRequest
-import com.example.corouterdemo.exception.AppException
+import com.example.corouterdemo.error.BadRequestException
 import com.example.corouterdemo.extension.afterId
 import com.example.corouterdemo.extension.awaitValidBody
 import com.example.corouterdemo.extension.beforeId
@@ -87,8 +87,8 @@ class PostHandler(
     /** Required: without it, a retried or double-submitted create would publish the post twice. */
     private fun ServerRequest.idempotencyKey(): String {
         val key = headers().firstHeader(IDEMPOTENCY_KEY_HEADER)
-        if (key.isNullOrBlank()) throw AppException.BadRequest("error.header.required", arrayOf(IDEMPOTENCY_KEY_HEADER))
-        if (!IDEMPOTENCY_KEY.matches(key)) throw AppException.BadRequest("error.idempotency.key.invalid")
+        if (key.isNullOrBlank()) throw BadRequestException("error.request.missingHeader", listOf(IDEMPOTENCY_KEY_HEADER))
+        if (!IDEMPOTENCY_KEY.matches(key)) throw BadRequestException("error.idempotencyKey.invalid")
         return key
     }
 

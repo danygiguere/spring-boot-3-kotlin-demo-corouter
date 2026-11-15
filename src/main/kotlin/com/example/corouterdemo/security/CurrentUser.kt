@@ -1,6 +1,6 @@
 package com.example.corouterdemo.security
 
-import com.example.corouterdemo.exception.AppException
+import com.example.corouterdemo.error.UnauthenticatedException
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import org.springframework.security.core.context.ReactiveSecurityContextHolder
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
@@ -12,7 +12,7 @@ class CurrentUser {
     suspend fun get(): AuthenticatedUser {
         val token =
             ReactiveSecurityContextHolder.getContext().awaitSingleOrNull()?.authentication as? JwtAuthenticationToken
-                ?: throw AppException.Unauthorized("error.401")
+                ?: throw UnauthenticatedException()
         return AuthenticatedUser.from(token.token)
     }
 }

@@ -33,6 +33,11 @@ spring:
   codec:
     # Request body cap. The largest valid body (post: 5000 chars + 10 image URLs) is well under it.
     max-in-memory-size: 64KB
+  webflux:
+    # GlobalExceptionHandler builds ProblemDetail responses itself. Turning this on would register a second,
+    # competing handler.
+    problemdetails:
+      enabled: false
 
 springdoc:
   api-docs:
@@ -46,6 +51,16 @@ server:
   port: ${SERVER_PORT:8080}
   # Empty = all interfaces. DEV_TOKEN_ENABLED requires 127.0.0.1.
   address: ${SERVER_ADDRESS:}
+  # GlobalExceptionHandler runs before Spring Boot's error handler and answers every exception. Safety net:
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
+
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"
 
 app:
   jwt:
